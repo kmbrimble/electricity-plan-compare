@@ -244,8 +244,54 @@
     cursor: pointer; white-space: nowrap;
   }
   .dir-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .dir-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
   .toggle-btn:focus-visible, .multiselect-toggle:focus-visible, .dir-toggle:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0.5rem; }
+  .tab-btn {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-secondary); font-size: 14px; font-weight: 600;
+    padding: 0.5rem 0.25rem; cursor: pointer; margin-right: 1rem;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Hourly usage tab */
+  .month-nav { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
+  .month-nav select { width: auto; min-width: 160px; }
+  .hourly-layout { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+  .hourly-chart-wrap { flex: 1 1 480px; min-width: 280px; }
+  .hourly-stats { flex: 0 0 220px; display: flex; flex-direction: column; gap: 0.75rem; }
+  .stat-callout {
+    display: flex; flex-direction: column; gap: 2px; text-align: left;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.75rem 0.9rem; cursor: pointer; color: var(--text); font: inherit; width: 100%;
+  }
+  .stat-callout.stat-static { cursor: default; }
+  button.stat-callout:hover { border-color: var(--accent); }
+  .stat-callout:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .stat-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat-value { font-size: 18px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+  .stat-sub { font-size: 12px; color: var(--text-secondary); }
+  .hourly-day-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+  .link-btn:hover { text-decoration: underline; }
+  .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .hourly-chart-svg { width: 100%; height: auto; display: block; }
+  .hour-range-band { fill: rgba(56, 189, 248, 0.18); }
+  .hour-avg-bar { fill: var(--accent); }
+  .hour-cap-line { stroke: var(--text-secondary); stroke-width: 1.5; }
+  .hour-axis-line { stroke: var(--border-strong); stroke-width: 1; }
+  .hour-axis-label { fill: var(--text-muted); font-size: 10px; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+  .hour-highlight .hour-avg-bar { stroke: var(--good); stroke-width: 2; animation: hourPulse 1.4s ease-in-out infinite; }
+  @keyframes hourPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+  @media (prefers-reduced-motion: reduce) {
+    .hour-highlight .hour-avg-bar { animation: none; }
   }
 </style>
 </head>
@@ -290,8 +336,12 @@
         <label for="currentClRate">Controlled load rate (c/kWh, reference only)</label>
         <input type="number" id="currentClRate" value="24.222" step="0.001" />
       </div>
+      <div class="field">
+        <label for="currentSolarRate">Solar feed-in rate (c/kWh)</label>
+        <input type="number" id="currentSolarRate" value="" step="0.001" placeholder="e.g. 4.900" />
+      </div>
     </div>
-    <p class="hint">Controlled load energy is assumed to already be included in your main usage file and main usage rate above, so the CL rate above is used only to show a rate comparison column — it isn't added into the cost total (that would double-count the energy). Leave the supply/usage fields blank to skip the comparison — the ranking of market plans will still work fine.</p>
+    <p class="hint">Controlled load energy is assumed to already be included in your main usage file and main usage rate above, so the CL rate above is used only to show a rate comparison column — it isn't added into the cost total (that would double-count the energy). If your usage file includes a solar export column, entering your current feed-in rate here nets that credit out of your current plan's cost too, for a fair comparison. Leave the supply/usage fields blank to skip the comparison — the ranking of market plans will still work fine.</p>
   </div>
 
   <div class="card">
@@ -317,9 +367,22 @@
     <div id="errorBox"></div>
   </div>
 
+  <div class="card hidden" id="tabsCard">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="comparison" role="tab" aria-selected="true">Plan comparison</button>
+      <button type="button" class="tab-btn" data-tab="hourly" role="tab" aria-selected="false">Hourly usage</button>
+    </div>
+  </div>
+
+  <div class="card results-card hidden" id="hourlyUsageCard">
+    <h2>Hourly usage</h2>
+    <div id="hourlyUsageBody"></div>
+  </div>
+
   <div class="card results-card hidden" id="resultsCard">
     <h2>Results</h2>
     <div id="summary"></div>
+    <div id="reconciliation" class="hidden"></div>
 
     <div class="filters" id="filters">
       <div class="filter-group">
@@ -366,6 +429,8 @@
             <th data-key="usageDiff" class="num">Usage cost diff $/yr</th>
             <th data-key="supplyDiff" class="num">Supply charge diff $/yr</th>
             <th data-key="balancingDiff" class="num">Other diff $/yr</th>
+            <th data-key="solarCredit" class="num">Solar credit $/yr</th>
+            <th data-key="solarCreditDiff" class="num">Solar credit diff $/yr</th>
             <th data-key="peakRate" class="num">Peak c/kWh</th>
             <th data-key="peakRateDiff" class="num">Peak diff c/kWh</th>
             <th data-key="offPeakRate" class="num">Off-peak c/kWh</th>
@@ -381,7 +446,7 @@
         <tbody id="resultsBody"></tbody>
       </table>
     </div>
-    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Usage cost diff and supply charge diff only compare the plan's peak/anytime rate and main daily charge against your current plan — "Other diff" is the remainder (off-peak/shoulder usage, controlled load charges, discounts) so the three always add up to the total yearly diff. Columns with no data for any plan (e.g. off-peak diff, if you haven't entered a current off-peak rate) are hidden automatically. Check the plan details for anything you're shortlisting.</p>
+    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Usage cost diff and supply charge diff only compare the plan's peak/anytime rate and main daily charge against your current plan — "Other diff" is the remainder (off-peak/shoulder usage, controlled load charges, discounts) so the three always add up to the total yearly diff. Solar credit is estimated from your uploaded export data against each plan's feed-in tariff and is already netted into the annual cost above (shown as $0 if you have no solar data or a plan has no feed-in tariff, rather than hidden). Columns with no data for any plan (e.g. off-peak diff, if you haven't entered a current off-peak rate) are hidden automatically. Check the plan details for anything you're shortlisting.</p>
   </div>
 
   <p class="footer-note">Plan data sourced from the AER's Energy Made Easy CDR API. This tool runs entirely in your browser — no data leaves this page.</p>
@@ -394,6 +459,11 @@ let plansData = null;      // raw JSON from fetch script {plans: [...]}
 let results = [];
 let sortKey = 'annualCost';
 let sortAsc = true;
+
+// Hourly usage tab state.
+let hourlyMonthIndex = 0;      // index into getAvailableMonths()
+let hourlyDayOverride = null;  // 'YYYY-MM-DD' when viewing one day's profile instead of the month average
+let hourlyHighlightHour = null; // hour (0-23) to pulse-highlight, set by clicking the peak-hourly stat
 
 const usageFileInput = document.getElementById('usageFile');
 const plansFileInput = document.getElementById('plansFile');
@@ -542,6 +612,30 @@ inputSummary.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandInputs(); }
 });
 
+// Tabs: "Plan comparison" (the existing results table) vs "Hourly usage"
+// (Part 1 feature below). The tab bar itself only appears once a usage file
+// is loaded - hourly usage doesn't need plans data or a run at all.
+let activeTab = 'comparison';
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const isActive = b.dataset.tab === tab;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', String(isActive));
+  });
+  const resultsCard = document.getElementById('resultsCard');
+  const hourlyCard = document.getElementById('hourlyUsageCard');
+  if (tab === 'hourly') {
+    resultsCard.classList.add('hidden');
+    hourlyCard.classList.remove('hidden');
+    renderHourlyUsage();
+  } else {
+    hourlyCard.classList.add('hidden');
+    if (results.length > 0) resultsCard.classList.remove('hidden');
+  }
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
 function setStatus(el, msg, ok) {
   el.textContent = msg;
   el.className = 'file-status ' + (ok ? 'ok' : 'err');
@@ -566,6 +660,11 @@ function loadUsageText(text, sourceLabel) {
     const isHourly = usageDays.some(d => d.hourlyKwh !== null);
     setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}${sourceLabel || ''}.`, true);
     maybeEnableRun();
+    document.getElementById('tabsCard').classList.remove('hidden');
+    hourlyMonthIndex = 0;
+    hourlyDayOverride = null;
+    hourlyHighlightHour = null;
+    if (activeTab === 'hourly') renderHourlyUsage();
   } catch (err) {
     setStatus(usageStatus, 'Could not parse this file: ' + err.message, false);
   }
@@ -619,12 +718,22 @@ async function loadDefaults() {
 }
 loadDefaults();
 
+// Column detection is order-sensitive because several optional columns share
+// words with each other ("solar_cost" contains both "cost" and "solar").
+// Solar-cost is matched first so it can be excluded when matching the plain
+// solar (kWh) and usage-cost columns, which in turn are excluded when
+// matching the plain kWh column - same pattern as the original single kwhIdx
+// lookup, just with more optional columns to keep out of each other's way.
 function parseUsageCsv(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
   if (lines.length < 2) return [];
   const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
   const dateIdx = header.findIndex(h => /date/.test(h));
-  const kwhIdx = header.findIndex(h => /kwh|usage|consumption/.test(h));
+  const solarCostIdx = header.findIndex(h => /(solar|export|feed.?in).*(cost|credit)|(cost|credit).*(solar|export|feed.?in)/.test(h));
+  const solarIdx = header.findIndex((h, i) => /solar|export|feed.?in/.test(h) && i !== solarCostIdx);
+  const usageCostIdx = header.findIndex((h, i) => /cost|charge/.test(h) && i !== solarCostIdx);
+  const kwhIdx = header.findIndex((h, i) => /kwh|usage|consumption/.test(h) && i !== solarIdx && i !== solarCostIdx);
+  const qualityIdx = header.findIndex(h => /quality/.test(h));
   if (dateIdx === -1 || kwhIdx === -1) {
     throw new Error('Could not find date/kWh columns in header: ' + header.join(', '));
   }
@@ -638,7 +747,22 @@ function parseUsageCsv(text) {
     if (isNaN(kwh)) continue;
     const parsed = parseTimestamp(rawDate);
     if (!parsed) continue;
-    rows.push({ date: parsed.date, hour: parsed.hour, hasTime: parsed.hasTime, kwh });
+    // null = column not present at all (no solar data uploaded); a real
+    // number (incl. 0) = column present, this interval just exported nothing.
+    const solarKwh = solarIdx !== -1 ? (parseFloat(cols[solarIdx]) || 0) : null;
+    const usageCostRaw = usageCostIdx !== -1 ? parseFloat(cols[usageCostIdx]) : NaN;
+    const solarCostRaw = solarCostIdx !== -1 ? parseFloat(cols[solarCostIdx]) : NaN;
+    const quality = qualityIdx !== -1 ? (cols[qualityIdx] || '').trim().toUpperCase() : '';
+    rows.push({
+      date: parsed.date, hour: parsed.hour, hasTime: parsed.hasTime, kwh,
+      solarKwh,
+      usageCost: isNaN(usageCostRaw) ? null : usageCostRaw,
+      solarCost: isNaN(solarCostRaw) ? null : solarCostRaw,
+      // An explicit non-ACTUAL read quality (e.g. "ESTIMATED"): still counted
+      // in totals below, just excluded from "peak" records in the hourly
+      // usage chart, since an estimated read could be a copied prior value.
+      isEstimated: quality !== '' && quality !== 'ACTUAL',
+    });
   }
   return rows;
 }
@@ -647,21 +771,43 @@ function parseUsageCsv(text) {
 // If the source data included a time component, hourlyKwh is a 24-length
 // array (hour 0-23) so plans can be costed with exact time-of-use matching.
 // If only daily totals were provided, hourlyKwh stays null and TOU plans
-// fall back to the load-shape estimate.
+// fall back to the load-shape estimate. hourlyEstimated mirrors hourlyKwh,
+// flagging which hours were substituted/estimated reads. totalSolarKwh /
+// totalUsageCost / totalSolarCost stay null when their source column was
+// never present in the uploaded file, vs. a real number (incl. 0) when it was.
 function aggregateToDays(intervals) {
   const byDate = new Map();
   for (const row of intervals) {
     if (!byDate.has(row.date)) {
-      byDate.set(row.date, { date: row.date, totalKwh: 0, hourlyKwh: row.hasTime ? new Array(24).fill(0) : null, sawTime: row.hasTime });
+      byDate.set(row.date, {
+        date: row.date,
+        totalKwh: 0,
+        hourlyKwh: row.hasTime ? new Array(24).fill(0) : null,
+        hourlyEstimated: row.hasTime ? new Array(24).fill(false) : null,
+        totalSolarKwh: row.solarKwh !== null ? 0 : null,
+        totalUsageCost: row.usageCost !== null ? 0 : null,
+        totalSolarCost: row.solarCost !== null ? 0 : null,
+      });
     }
     const entry = byDate.get(row.date);
     entry.totalKwh += row.kwh;
-    if (row.hasTime && entry.hourlyKwh) {
+    if (row.hasTime) {
+      if (!entry.hourlyKwh) {
+        // mixed: this date previously had no time info, now does - upgrade it
+        entry.hourlyKwh = new Array(24).fill(0);
+        entry.hourlyEstimated = new Array(24).fill(false);
+      }
       entry.hourlyKwh[row.hour] += row.kwh;
-    } else if (row.hasTime && !entry.hourlyKwh) {
-      // mixed: this date previously had no time info, now does - upgrade it
-      entry.hourlyKwh = new Array(24).fill(0);
-      entry.hourlyKwh[row.hour] += row.kwh;
+      if (row.isEstimated) entry.hourlyEstimated[row.hour] = true;
+    }
+    if (row.solarKwh !== null) {
+      entry.totalSolarKwh = (entry.totalSolarKwh || 0) + row.solarKwh;
+    }
+    if (row.usageCost !== null) {
+      entry.totalUsageCost = (entry.totalUsageCost || 0) + row.usageCost;
+    }
+    if (row.solarCost !== null) {
+      entry.totalSolarCost = (entry.totalSolarCost || 0) + row.solarCost;
     }
   }
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -927,6 +1073,45 @@ function extractDisplayRates(plan) {
   return out;
 }
 
+// Solar feed-in credit ----------------------------------------------------
+// contract.solarFeedInTariff is an array (most plans have one entry); rate
+// is dollars/kWh, same convention as every other rate in this file. Plans
+// with no feed-in tariff listed genuinely credit $0 - that's real, not a
+// gap, so this returns 0 rather than null.
+function extractSolarFeedInRate(plan) {
+  const contract = plan.electricityContract || {};
+  const tariffs = contract.solarFeedInTariff;
+  if (!tariffs || tariffs.length === 0) return 0;
+  return toNum(tariffs[0].singleTariff?.rates?.[0]?.unitPrice);
+}
+
+// Annualizes a solar credit the same way plan costs are annualized: sum the
+// exported kWh across the uploaded period, multiply by the rate, scale by
+// 365/days-in-period.
+function computeSolarCreditForYear(solarRateDollarsPerKwh, usage) {
+  if (!usage || usage.length === 0) return 0;
+  const totalSolarKwh = usage.reduce((s, d) => s + (d.totalSolarKwh || 0), 0);
+  if (totalSolarKwh === 0) return 0;
+  const scaleToYear = 365 / usage.length;
+  return solarRateDollarsPerKwh * totalSolarKwh * scaleToYear;
+}
+
+// Sanity-check line: sums Alinta's own per-interval usage/solar cost columns
+// (if the CSV included them) across the uploaded period, for comparison
+// against the current-plan cost estimate over that same period. Validation
+// only - never feeds into the plan ranking.
+function computeReconciliation(usage) {
+  const usageCostKnown = usage.some(d => d.totalUsageCost !== null);
+  const solarCostKnown = usage.some(d => d.totalSolarCost !== null);
+  if (!usageCostKnown && !solarCostKnown) return null;
+  return {
+    usageCostKnown,
+    solarCostKnown,
+    totalUsageCost: usage.reduce((s, d) => s + (d.totalUsageCost || 0), 0),
+    totalSolarCost: usage.reduce((s, d) => s + (d.totalSolarCost || 0), 0),
+  };
+}
+
 function diffOrNull(planVal, currentVal) {
   if (planVal === null || currentVal === null || isNaN(currentVal)) return null;
   return planVal - currentVal;
@@ -957,18 +1142,25 @@ function planUrl(planId, postcode) {
 document.getElementById('runBtn').addEventListener('click', () => {
   errorBox.innerHTML = '';
   results = [];
+  const usageHasSolar = usageDays.some(d => d.totalSolarKwh !== null);
   for (const plan of plansData) {
     if (isExcludedRetailer(plan)) continue;
     const calc = computeAnnualCostForPlan(plan, usageDays);
     if (!calc) continue;
     const rates = extractDisplayRates(plan);
+    const solarRate = extractSolarFeedInRate(plan);
+    const solarCredit = usageHasSolar ? computeSolarCreditForYear(solarRate, usageDays) : 0;
     results.push({
       retailer: plan.brandName || plan.brand || '—',
       planName: plan.displayName || plan.planName || plan.planId || '—',
       planId: plan.planId || '',
       planUrl: planUrl(plan.planId, document.getElementById('postcode').value.trim()),
       pricingModel: planPricingModelLabel(plan),
-      annualCost: calc.annualCost,
+      // Net of the solar credit, since that's the real bottom-line estimate
+      // used everywhere else (sorting, cheapest-plan summary, diffs) - the
+      // credit itself stays visible as its own column below.
+      annualCost: calc.annualCost - solarCredit,
+      solarCredit,
       usedApproxTou: calc.usedApproxTou,
       hasControlledLoad: calc.hasControlledLoad,
       peakRate: rates.peak,
@@ -993,7 +1185,10 @@ document.getElementById('runBtn').addEventListener('click', () => {
   const currentRate = parseFloat(document.getElementById('currentUsageRate').value);
   const currentClSupply = parseFloat(document.getElementById('currentClSupply').value);
   const currentClRate = parseFloat(document.getElementById('currentClRate').value);
+  const currentSolarRate = parseFloat(document.getElementById('currentSolarRate').value);
   let currentAnnualCost = null;
+  let currentPeriodCost = null;
+  let currentSolarCreditAnnual = null;
   let totalDays = 0, totalKwh = 0, scaleToYear = 1;
   if (!isNaN(currentSupply) && !isNaN(currentRate)) {
     totalDays = usageDays.length;
@@ -1003,10 +1198,29 @@ document.getElementById('runBtn').addEventListener('click', () => {
     if (!isNaN(currentClSupply)) {
       cost += (currentClSupply / 100) * totalDays;
     }
+    if (!isNaN(currentSolarRate) && usageHasSolar) {
+      const totalSolarKwh = usageDays.reduce((s, r) => s + (r.totalSolarKwh || 0), 0);
+      cost -= (currentSolarRate / 100) * totalSolarKwh;
+      currentSolarCreditAnnual = (currentSolarRate / 100) * totalSolarKwh * scaleToYear;
+    }
+    currentPeriodCost = cost;
     currentAnnualCost = cost * scaleToYear;
   }
 
+  const recon = computeReconciliation(usageDays);
+  const reconEl = document.getElementById('reconciliation');
+  if (recon && currentPeriodCost !== null) {
+    const parts = [];
+    if (recon.usageCostKnown) parts.push(`$${recon.totalUsageCost.toFixed(2)} charged`);
+    if (recon.solarCostKnown) parts.push(`$${recon.totalSolarCost.toFixed(2)} credited`);
+    reconEl.innerHTML = `<p class="hint">Alinta's own figures for this period: ${parts.join(', ')} — our estimate for your current plan over the same period: $${currentPeriodCost.toFixed(2)}.</p>`;
+    reconEl.classList.remove('hidden');
+  } else {
+    reconEl.classList.add('hidden');
+  }
+
   results.forEach(r => {
+    r.solarCreditDiff = currentSolarCreditAnnual !== null ? r.solarCredit - currentSolarCreditAnnual : null;
     r.vsCurrentPct = currentAnnualCost ? ((r.annualCost - currentAnnualCost) / currentAnnualCost) * 100 : null;
     r.annualDiff = currentAnnualCost ? (r.annualCost - currentAnnualCost) : null;
 
@@ -1046,11 +1260,11 @@ document.getElementById('runBtn').addEventListener('click', () => {
   });
 
   renderResults(currentAnnualCost);
+  switchTab('comparison');
   collapseInputs();
 });
 
 function renderResults(currentAnnualCost) {
-  document.getElementById('resultsCard').classList.remove('hidden');
   const summary = document.getElementById('summary');
   const cheapest = [...results].sort((a,b) => a.annualCost - b.annualCost)[0];
   let summaryHtml = `Compared <b>${results.length}</b> plans. Cheapest estimate: <b>${cheapest.retailer} — ${cheapest.planName}</b> at <b>$${cheapest.annualCost.toFixed(0)}/yr</b>.`;
@@ -1096,7 +1310,7 @@ function sortAndRender() {
   tbody.innerHTML = '';
 
   if (sorted.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;color:var(--text-muted);padding:2rem;white-space:normal;">No plans match the current filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="25" style="text-align:center;color:var(--text-muted);padding:2rem;white-space:normal;">No plans match the current filters.</td></tr>`;
     applyColumnVisibility(results);
     return;
   }
@@ -1117,6 +1331,22 @@ function sortAndRender() {
   }
   function fmtCents(v) {
     return (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(2) + 'c';
+  }
+  // Solar credit is money coming back, not a cost - always non-negative, so
+  // it gets its own formatter rather than the cost-diff (lower-is-good) one.
+  function fmtCredit(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    if (v === 0) return '$0';
+    return `<span class="badge save">$${v.toFixed(0)}</span>`;
+  }
+  // Solar credit DIFF vs current plan: here positive means "more credit than
+  // your current plan" - the opposite of fmtDollarDiff's sign convention,
+  // where positive means "costs more".
+  function fmtCreditDiff(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    const cls = v >= 0 ? 'save' : '';
+    const sign = v > 0 ? '+' : '';
+    return `<span class="${cls === 'save' ? 'badge save' : ''}">${sign}$${v.toFixed(0)}</span>`;
   }
 
   sorted.forEach(r => {
@@ -1142,6 +1372,8 @@ function sortAndRender() {
       <td class="num">${fmtDollarDiff(r.usageDiff)}</td>
       <td class="num">${fmtDollarDiff(r.supplyDiff)}</td>
       <td class="num">${fmtDollarDiff(r.balancingDiff)}</td>
+      <td class="num">${fmtCredit(r.solarCredit)}</td>
+      <td class="num">${fmtCreditDiff(r.solarCreditDiff)}</td>
       <td class="num">${fmtCents(r.peakRate)}</td>
       <td class="num">${fmtCentsDiff(r.peakRateDiff)}</td>
       <td class="num">${fmtCents(r.offPeakRate)}</td>
@@ -1176,6 +1408,245 @@ function applyColumnVisibility(rows) {
   document.querySelectorAll('#resultsBody tr').forEach(tr => {
     hiddenIdx.forEach(i => { if (tr.children[i]) tr.children[i].classList.add('col-hidden'); });
   });
+}
+
+// --- Hourly usage tab -----------------------------------------------------
+// Pure usage exploration - reuses usageDays (the same day-aggregated, hourly-
+// resolution structure the cost engine uses) and never touches plan costing.
+
+function formatMonthLabel(monthStr) { // 'YYYY-MM' -> 'July 2026'
+  const [y, m] = monthStr.split('-').map(Number);
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${names[m - 1]} ${y}`;
+}
+function formatDateShort(dateStr) { // 'YYYY-MM-DD' -> '14 Jul'
+  const [, m, d] = dateStr.split('-').map(Number);
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d} ${names[m - 1]}`;
+}
+function formatDateLong(dateStr) { // 'YYYY-MM-DD' -> '22 July 2026'
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${d} ${names[m - 1]} ${y}`;
+}
+function formatHour12(h) { // 18 -> '6pm', 0 -> '12am'
+  const period = h < 12 ? 'am' : 'pm';
+  let hour = h % 12; if (hour === 0) hour = 12;
+  return `${hour}${period}`;
+}
+
+function getAvailableMonths() {
+  const months = new Set((usageDays || []).map(d => d.date.slice(0, 7)));
+  return Array.from(months).sort();
+}
+
+// Per-hour-of-day average/min/max across every day in the month that has
+// hourly data, plus the month's peak single-hour and peak single-day
+// readings. Estimated (non-ACTUAL) reads are still summed into averages and
+// day totals, but excluded from setting a "peak" record - see the CSV
+// parsing notes at the top of the file. Zero readings are excluded from the
+// "min" only, since a 0 usually means a dropped interval, not genuine
+// zero usage.
+function aggregateHourlyStatsForMonth(month) {
+  const days = (usageDays || []).filter(d => d.date.startsWith(month) && d.hourlyKwh);
+  const buckets = Array.from({ length: 24 }, () => ({ all: [], nonZero: [], actual: [] }));
+  let peakHourly = null;
+  let peakDaily = null;
+
+  for (const day of days) {
+    let dayTotal = 0;
+    for (let h = 0; h < 24; h++) {
+      const v = day.hourlyKwh[h];
+      const estimated = !!(day.hourlyEstimated && day.hourlyEstimated[h]);
+      dayTotal += v;
+      buckets[h].all.push(v);
+      if (v > 0) buckets[h].nonZero.push(v);
+      if (!estimated) {
+        buckets[h].actual.push(v);
+        if (!peakHourly || v > peakHourly.kwh) peakHourly = { kwh: v, date: day.date, hour: h };
+      }
+    }
+    if (!peakDaily || dayTotal > peakDaily.kwh) peakDaily = { kwh: dayTotal, date: day.date };
+  }
+
+  const hours = buckets.map(b => {
+    const avg = b.all.length ? b.all.reduce((s, v) => s + v, 0) / b.all.length : 0;
+    const maxSource = b.actual.length ? b.actual : b.all;
+    const max = maxSource.length ? Math.max(...maxSource) : 0;
+    const minSource = b.nonZero.length ? b.nonZero : b.all;
+    const min = minSource.length ? Math.min(...minSource) : 0;
+    return { avg, max, min: Math.min(min, avg) }; // avg can't exceed max, and min shouldn't exceed avg visually
+  });
+
+  return { hours, peakHourly, peakDaily, dayCount: days.length };
+}
+
+function weekdayWeekendAvg(month) {
+  const days = (usageDays || []).filter(d => d.date.startsWith(month));
+  let wdSum = 0, wdCount = 0, weSum = 0, weCount = 0;
+  days.forEach(d => {
+    const isWeekend = ['SAT', 'SUN'].includes(dayOfWeekFor(d.date));
+    if (isWeekend) { weSum += d.totalKwh; weCount++; } else { wdSum += d.totalKwh; wdCount++; }
+  });
+  return { weekday: wdCount ? wdSum / wdCount : 0, weekend: weCount ? weSum / weCount : 0 };
+}
+
+// Shared bar-chart renderer for both the month-average view (band + avg bar
+// per hour) and the single-day view (plain bars, pass bandOnly=true).
+function buildHourlyBarChartSvg(hours, highlightHour, bandOnly) {
+  const W = 900, H = 260, padL = 36, padB = 28, padT = 10, padR = 10;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const maxVal = Math.max(0.1, ...hours.map(h => (typeof h === 'number' ? h : h.max)));
+  const yFor = v => padT + chartH - (v / maxVal) * chartH;
+  const baselineY = padT + chartH;
+  const bandW = chartW / 24;
+  const barW = bandW * 0.62;
+
+  let bars = '';
+  hours.forEach((h, i) => {
+    const x = padL + i * bandW + (bandW - barW) / 2;
+    const isHighlight = highlightHour === i;
+    if (bandOnly) {
+      const v = h;
+      const y = yFor(v);
+      bars += `<g class="hour-bar-group${isHighlight ? ' hour-highlight' : ''}">
+        <title>${formatHour12(i)}: ${v.toFixed(2)} kWh</title>
+        <rect class="hour-avg-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, baselineY - y).toFixed(1)}" />
+      </g>`;
+    } else {
+      const yAvg = yFor(h.avg), yMax = yFor(h.max), yMin = yFor(h.min);
+      bars += `<g class="hour-bar-group${isHighlight ? ' hour-highlight' : ''}">
+        <title>${formatHour12(i)}: avg ${h.avg.toFixed(2)} kWh, range ${h.min.toFixed(2)}–${h.max.toFixed(2)} kWh</title>
+        <rect class="hour-range-band" x="${x.toFixed(1)}" y="${yMax.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, yMin - yMax).toFixed(1)}" />
+        <rect class="hour-avg-bar" x="${x.toFixed(1)}" y="${yAvg.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, baselineY - yAvg).toFixed(1)}" />
+        <line class="hour-cap-line" x1="${x.toFixed(1)}" x2="${(x + barW).toFixed(1)}" y1="${yMax.toFixed(1)}" y2="${yMax.toFixed(1)}" />
+        <line class="hour-cap-line" x1="${x.toFixed(1)}" x2="${(x + barW).toFixed(1)}" y1="${yMin.toFixed(1)}" y2="${yMin.toFixed(1)}" />
+      </g>`;
+    }
+  });
+
+  let labels = '';
+  for (let i = 0; i < 24; i += 3) {
+    const x = padL + i * bandW + bandW / 2;
+    labels += `<text class="hour-axis-label" x="${x.toFixed(1)}" y="${H - 8}" text-anchor="middle">${formatHour12(i)}</text>`;
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Electricity usage by hour of day" class="hourly-chart-svg">
+    <line x1="${padL}" x2="${W - padR}" y1="${baselineY}" y2="${baselineY}" class="hour-axis-line" />
+    ${bars}${labels}
+  </svg>`;
+}
+
+function renderMonthView(month, months) {
+  const stats = aggregateHourlyStatsForMonth(month);
+  const idx = months.indexOf(month);
+  const weekday = weekdayWeekendAvg(month);
+  const svg = buildHourlyBarChartSvg(stats.hours, hourlyHighlightHour, false);
+
+  return `
+    <div class="month-nav">
+      <button type="button" class="dir-toggle" id="monthPrevBtn" ${idx <= 0 ? 'disabled' : ''} aria-label="Previous month">‹ Prev</button>
+      <select id="monthSelect" aria-label="Select month">${months.map(m => `<option value="${m}" ${m === month ? 'selected' : ''}>${formatMonthLabel(m)}</option>`).join('')}</select>
+      <button type="button" class="dir-toggle" id="monthNextBtn" ${idx >= months.length - 1 ? 'disabled' : ''} aria-label="Next month">Next ›</button>
+    </div>
+    <div class="hourly-layout">
+      <div class="hourly-chart-wrap">
+        <p class="hint">Average kWh per hour of day across ${formatMonthLabel(month)} (${stats.dayCount} day${stats.dayCount === 1 ? '' : 's'} with interval data). The lighter band is the min–max range for that hour; the solid bar is the average.</p>
+        ${svg}
+      </div>
+      <div class="hourly-stats">
+        ${stats.peakHourly ? `
+        <button type="button" class="stat-callout" id="peakHourlyStat">
+          <span class="stat-label">Peak hourly usage</span>
+          <span class="stat-value">${stats.peakHourly.kwh.toFixed(2)} kWh</span>
+          <span class="stat-sub">${formatDateShort(stats.peakHourly.date)}, ${formatHour12(stats.peakHourly.hour)}</span>
+        </button>` : ''}
+        ${stats.peakDaily ? `
+        <button type="button" class="stat-callout" id="peakDailyStat">
+          <span class="stat-label">Peak daily usage</span>
+          <span class="stat-value">${stats.peakDaily.kwh.toFixed(1)} kWh</span>
+          <span class="stat-sub">${formatDateShort(stats.peakDaily.date)} — view day</span>
+        </button>` : ''}
+        <div class="stat-callout stat-static">
+          <span class="stat-label">Weekday vs weekend avg</span>
+          <span class="stat-value">${weekday.weekday.toFixed(1)} / ${weekday.weekend.toFixed(1)} kWh</span>
+          <span class="stat-sub">per day, weekday / weekend</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDayProfileView(dateStr) {
+  const day = (usageDays || []).find(d => d.date === dateStr);
+  if (!day || !day.hourlyKwh) {
+    return `<button type="button" class="link-btn" id="backToMonthBtn">← Back to month average</button>
+      <p class="hint">No hourly data for that day.</p>`;
+  }
+  let peakHour = 0;
+  day.hourlyKwh.forEach((v, i) => { if (v > day.hourlyKwh[peakHour]) peakHour = i; });
+  const svg = buildHourlyBarChartSvg(day.hourlyKwh, null, true);
+  return `
+    <div class="hourly-day-header">
+      <button type="button" class="link-btn" id="backToMonthBtn">← Back to month average</button>
+    </div>
+    <h3 style="margin:0 0 0.5rem;">${formatDateLong(dateStr)} — hourly profile</h3>
+    <p class="hint">Showing this single day's actual readings, not a month average. Total: ${day.totalKwh.toFixed(1)} kWh, peak hour ${formatHour12(peakHour)} (${day.hourlyKwh[peakHour].toFixed(2)} kWh).</p>
+    ${svg}
+  `;
+}
+
+function renderHourlyUsage() {
+  const body = document.getElementById('hourlyUsageBody');
+  if (!usageDays || usageDays.length === 0) {
+    body.innerHTML = `<p class="hint">Upload a usage file first.</p>`;
+    return;
+  }
+  const isHourly = usageDays.some(d => d.hourlyKwh !== null);
+  if (!isHourly) {
+    body.innerHTML = `<div class="error-box">Hourly usage requires interval data — your uploaded file only has daily totals.</div>`;
+    return;
+  }
+  const months = getAvailableMonths();
+  if (hourlyMonthIndex >= months.length) hourlyMonthIndex = months.length - 1;
+  if (hourlyMonthIndex < 0) hourlyMonthIndex = 0;
+  const month = months[hourlyMonthIndex];
+
+  body.innerHTML = hourlyDayOverride
+    ? renderDayProfileView(hourlyDayOverride)
+    : renderMonthView(month, months);
+
+  wireHourlyUsageEvents();
+}
+
+function wireHourlyUsageEvents() {
+  const prevBtn = document.getElementById('monthPrevBtn');
+  const nextBtn = document.getElementById('monthNextBtn');
+  const monthSelect = document.getElementById('monthSelect');
+  if (prevBtn) prevBtn.addEventListener('click', () => { hourlyMonthIndex--; hourlyHighlightHour = null; renderHourlyUsage(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { hourlyMonthIndex++; hourlyHighlightHour = null; renderHourlyUsage(); });
+  if (monthSelect) monthSelect.addEventListener('change', (e) => {
+    hourlyMonthIndex = getAvailableMonths().indexOf(e.target.value);
+    hourlyHighlightHour = null;
+    renderHourlyUsage();
+  });
+  const peakHourlyStat = document.getElementById('peakHourlyStat');
+  if (peakHourlyStat) peakHourlyStat.addEventListener('click', () => {
+    const stats = aggregateHourlyStatsForMonth(getAvailableMonths()[hourlyMonthIndex]);
+    if (!stats.peakHourly) return;
+    hourlyHighlightHour = stats.peakHourly.hour;
+    renderHourlyUsage();
+    document.querySelector('.hourly-chart-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  const peakDailyStat = document.getElementById('peakDailyStat');
+  if (peakDailyStat) peakDailyStat.addEventListener('click', () => {
+    const stats = aggregateHourlyStatsForMonth(getAvailableMonths()[hourlyMonthIndex]);
+    if (!stats.peakDaily) return;
+    hourlyDayOverride = stats.peakDaily.date;
+    renderHourlyUsage();
+  });
+  const backBtn = document.getElementById('backToMonthBtn');
+  if (backBtn) backBtn.addEventListener('click', () => { hourlyDayOverride = null; renderHourlyUsage(); });
 }
 
 function escapeHtml(s) {
