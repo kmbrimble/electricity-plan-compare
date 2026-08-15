@@ -114,12 +114,15 @@
     position: sticky; top: 0; z-index: 3;
     background: var(--surface-2); color: var(--text);
     font-weight: 600; cursor: pointer; user-select: none;
-    height: var(--header-h);
+    min-height: var(--header-h); height: auto;
+    white-space: normal; line-height: 1.3; vertical-align: bottom;
     border-bottom: 2px solid var(--border-strong);
   }
+  thead th.num { max-width: 96px; }
   thead th:hover { color: var(--accent); }
   thead th.sorted { color: var(--accent); border-bottom-color: var(--accent); }
   thead th.sorted::after { content: " \25BC"; font-size: 9px; opacity: 0.85; }
+  thead th.col-hidden, tbody td.col-hidden { display: none; }
   th:first-child, td:first-child {
     position: sticky; left: 0; z-index: 1;
     width: var(--col1-w); min-width: var(--col1-w); max-width: var(--col1-w);
@@ -136,8 +139,8 @@
   tbody tr:nth-child(even) td:first-child,
   tbody tr:nth-child(even) td:nth-child(2) { background: var(--surface-2); }
   tbody tr:nth-child(even) { background: var(--surface-2); }
-  tbody tr:hover td { background: rgba(56, 189, 248, 0.08); }
-  tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2) { background: rgba(56, 189, 248, 0.14); }
+  tbody tr:hover td { background: #16283d; }
+  tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2) { background: #1c3350; }
   tr.current-plan td:first-child { font-weight: 600; }
   .badge {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px;
@@ -239,6 +242,7 @@
             <th data-key="vsCurrentPct" class="num">Yearly diff %</th>
             <th data-key="usageDiff" class="num">Usage cost diff $/yr</th>
             <th data-key="supplyDiff" class="num">Supply charge diff $/yr</th>
+            <th data-key="balancingDiff" class="num">Other diff $/yr</th>
             <th data-key="peakRate" class="num">Peak c/kWh</th>
             <th data-key="peakRateDiff" class="num">Peak diff c/kWh</th>
             <th data-key="offPeakRate" class="num">Off-peak c/kWh</th>
@@ -254,7 +258,7 @@
         <tbody id="resultsBody"></tbody>
       </table>
     </div>
-    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Check the plan details for anything you're shortlisting.</p>
+    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Usage cost diff and supply charge diff only compare the plan's peak/anytime rate and main daily charge against your current plan — "Other diff" is the remainder (off-peak/shoulder usage, controlled load charges, discounts) so the three always add up to the total yearly diff. Columns with no data for any plan (e.g. off-peak diff, if you haven't entered a current off-peak rate) are hidden automatically. Check the plan details for anything you're shortlisting.</p>
   </div>
 
   <p class="footer-note">Plan data sourced from the AER's Energy Made Easy CDR API. This tool runs entirely in your browser — no data leaves this page.</p>
@@ -761,6 +765,16 @@ document.getElementById('runBtn').addEventListener('click', () => {
       r.supplyDiff = null;
     }
 
+    // Balancing diff: whatever the full costing engine came up with (annualDiff)
+    // that the simple peak-rate usage/supply comparisons above don't explain -
+    // TOU off-peak/shoulder usage, controlled load charges, seasonal tariffs,
+    // guaranteed discounts. Keeps usageDiff + supplyDiff + balancingDiff ==
+    // annualDiff always, instead of the two partial figures silently not
+    // adding up to the real total.
+    r.balancingDiff = r.annualDiff !== null
+      ? r.annualDiff - (r.usageDiff || 0) - (r.supplyDiff || 0)
+      : null;
+
     r.peakRateDiff = diffOrNull(r.peakRate, isNaN(currentRate) ? null : currentRate);
     r.offPeakRateDiff = diffOrNull(r.offPeakRate, null); // no current off-peak rate entered
     r.shoulderRateDiff = diffOrNull(r.shoulderRate, null); // no current shoulder rate entered
@@ -855,6 +869,7 @@ function sortAndRender() {
       <td class="num">${vsCurrentCell}</td>
       <td class="num">${fmtDollarDiff(r.usageDiff)}</td>
       <td class="num">${fmtDollarDiff(r.supplyDiff)}</td>
+      <td class="num">${fmtDollarDiff(r.balancingDiff)}</td>
       <td class="num">${fmtCents(r.peakRate)}</td>
       <td class="num">${fmtCentsDiff(r.peakRateDiff)}</td>
       <td class="num">${fmtCents(r.offPeakRate)}</td>
@@ -867,6 +882,27 @@ function sortAndRender() {
       <td class="num">${fmtCentsDiff(r.clDailyChargeDiff)}</td>
     `;
     tbody.appendChild(tr);
+  });
+
+  applyColumnVisibility(sorted);
+}
+
+// Hides any column (header + cells) that has no data at all across the
+// current results - e.g. off-peak/shoulder diff columns, which stay empty
+// unless a current off-peak/shoulder rate is ever entered. Reappears on its
+// own the moment a row actually has a value for that key.
+function applyColumnVisibility(rows) {
+  const ths = Array.from(document.querySelectorAll('#resultsTable thead th'));
+  const hiddenIdx = [];
+  ths.forEach((th, i) => {
+    const key = th.dataset.key;
+    if (!key) return;
+    const hasData = rows.some(r => r[key] !== null && r[key] !== undefined && r[key] !== '');
+    th.classList.toggle('col-hidden', !hasData);
+    if (!hasData) hiddenIdx.push(i);
+  });
+  document.querySelectorAll('#resultsBody tr').forEach(tr => {
+    hiddenIdx.forEach(i => { if (tr.children[i]) tr.children[i].classList.add('col-hidden'); });
   });
 }
 
