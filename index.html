@@ -103,7 +103,15 @@
     max-height: 72vh;
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) var(--surface);
   }
+  .table-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  .table-scroll::-webkit-scrollbar-track { background: var(--surface); }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--surface); }
+  .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  .table-scroll::-webkit-scrollbar-corner { background: var(--surface); }
   table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
   th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   td:nth-child(2) {
@@ -118,7 +126,7 @@
     white-space: normal; line-height: 1.3; vertical-align: bottom;
     border-bottom: 2px solid var(--border-strong);
   }
-  thead th.num { max-width: 96px; }
+  thead th.num { max-width: 96px; font-family: inherit; }
   thead th:hover { color: var(--accent); }
   thead th.sorted { color: var(--accent); border-bottom-color: var(--accent); }
   thead th.sorted::after { content: " \25BC"; font-size: 9px; opacity: 0.85; }
@@ -154,7 +162,7 @@
   }
   #summary b { font-weight: 700; }
   .hint {
-    font-size: 12px; color: var(--text-muted); margin-top: 0.75rem; max-width: 900px;
+    font-size: 12px; color: var(--text-muted); margin-top: 0.75rem;
   }
   .error-box {
     background: var(--bad-bg); color: var(--bad-text); border: 1px solid var(--bad); border-radius: var(--radius-sm);
@@ -166,6 +174,79 @@
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  /* Collapsed input summary */
+  .input-summary { cursor: pointer; padding: 1rem 1.5rem; }
+  .input-summary-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .input-summary-edit { color: var(--accent); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .input-summary:hover, .input-summary:focus-visible { border-color: var(--accent); }
+  .input-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Filter bar */
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: flex-end;
+    margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .filter-group > span {
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .toggle-group { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+  .toggle-btn {
+    background: var(--surface-2); color: var(--text-secondary); border: none;
+    border-right: 1px solid var(--border-strong);
+    padding: 0.5rem 0.9rem; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .toggle-btn:last-child { border-right: none; }
+  .toggle-btn.active { background: var(--accent); color: var(--accent-contrast); }
+  .toggle-btn:hover:not(.active) { color: var(--text); }
+
+  .switch-label { display: flex; align-items: center; gap: 0.6rem; font-size: 13px; color: var(--text); cursor: pointer; height: 2.2rem; }
+  .switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch-track { position: absolute; inset: 0; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 999px; transition: background .15s ease; }
+  .switch-track::before {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--text-secondary); transition: transform .15s ease, background .15s ease;
+  }
+  .switch input:checked + .switch-track { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .switch-track::before { transform: translateX(16px); background: var(--accent-contrast); }
+  .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .multiselect { position: relative; }
+  .multiselect-toggle {
+    background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text);
+    border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; font-size: 13px; cursor: pointer;
+    min-width: 170px; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  }
+  .multiselect-toggle::after { content: "\25BE"; color: var(--text-muted); font-size: 10px; }
+  .multiselect-panel {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 20;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 220px; max-height: 260px; overflow: auto; padding: 0.35rem;
+  }
+  .multiselect-panel label {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem;
+    font-size: 13px; font-weight: 400; color: var(--text); border-radius: 4px; cursor: pointer;
+  }
+  .multiselect-panel label:hover { background: var(--surface-2); }
+  .multiselect-panel .divider { border-top: 1px solid var(--border); margin: 0.3rem 0; }
+
+  .sort-control { display: flex; gap: 0.5rem; }
+  .sort-control select { width: auto; min-width: 170px; }
+  .dir-toggle {
+    background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text);
+    border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .dir-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .toggle-btn:focus-visible, .multiselect-toggle:focus-visible, .dir-toggle:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
 </style>
 </head>
 
@@ -174,6 +255,7 @@
   <h1>Electricity plan comparison — Energex (South East QLD)</h1>
   <p class="subtitle">Ranks real electricity plans against your actual daily usage, using pricing effective from 1 July 2026. Demand-charge plans excluded.</p>
 
+  <div id="inputCards">
   <div class="card">
     <div class="step-title"><span class="step-label">1</span><h2>Your usage data</h2></div>
     <p class="step-desc">Upload your usage CSV. Hourly interval data (one row per hour, ISO timestamps) gives exact time-of-use costing; daily totals also work, using a typical load-shape estimate for time-of-use plans instead. If your controlled load usage is already included in this file's totals, you don't need a separate upload.</p>
@@ -213,16 +295,24 @@
   </div>
 
   <div class="card">
-    <div class="step-title"><span class="step-label">3b</span><h2>Postcode</h2></div>
+    <div class="step-title"><span class="step-label">4</span><h2>Postcode</h2></div>
     <p class="step-desc">Used to build working Energy Made Easy plan links (they require a postcode).</p>
     <div class="field" style="max-width:160px;">
       <label for="postcode">Postcode</label>
       <input type="text" id="postcode" value="4069" maxlength="4" pattern="[0-9]{4}" />
     </div>
   </div>
+  </div>
+
+  <div class="card input-summary hidden" id="inputSummary" role="button" tabindex="0" aria-expanded="false">
+    <div class="input-summary-row">
+      <span id="inputSummaryText"></span>
+      <span class="input-summary-edit">Edit ▾</span>
+    </div>
+  </div>
 
   <div class="card">
-    <div class="step-title"><span class="step-label">4</span><h2>Run comparison</h2></div>
+    <div class="step-title"><span class="step-label">5</span><h2>Run comparison</h2></div>
     <button class="primary" id="runBtn" disabled>Load both files to enable</button>
     <div id="errorBox"></div>
   </div>
@@ -230,6 +320,39 @@
   <div class="card results-card hidden" id="resultsCard">
     <h2>Results</h2>
     <div id="summary"></div>
+
+    <div class="filters" id="filters">
+      <div class="filter-group">
+        <span>Retailer</span>
+        <div class="multiselect" id="retailerFilter">
+          <button type="button" class="multiselect-toggle" id="retailerFilterToggle" aria-haspopup="listbox" aria-expanded="false">All retailers</button>
+          <div class="multiselect-panel hidden" id="retailerFilterPanel"></div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span>Tariff type</span>
+        <div class="toggle-group" role="group" aria-label="Tariff type filter">
+          <button type="button" class="toggle-btn" data-tariff="single">Single Rate</button>
+          <button type="button" class="toggle-btn" data-tariff="tou">Time of Use</button>
+          <button type="button" class="toggle-btn active" data-tariff="both">Both</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span>Controlled load</span>
+        <label class="switch-label" for="clFilter">
+          <span class="switch"><input type="checkbox" id="clFilter" /><span class="switch-track"></span></span>
+          <span>CL plans only</span>
+        </label>
+      </div>
+      <div class="filter-group">
+        <span>Sort by</span>
+        <div class="sort-control">
+          <select id="sortKeySelect"></select>
+          <button type="button" class="dir-toggle" id="sortDirToggle">↑ Asc</button>
+        </div>
+      </div>
+    </div>
+
     <div class="table-scroll">
       <table id="resultsTable">
         <thead>
@@ -278,6 +401,146 @@ const usageStatus = document.getElementById('usageStatus');
 const plansStatus = document.getElementById('plansStatus');
 const runBtn = document.getElementById('runBtn');
 const errorBox = document.getElementById('errorBox');
+
+// Result filters, combined with AND logic in getFilteredResults().
+let retailerFilter = null; // null = all retailers; else a Set of allowed names
+let tariffFilter = 'both'; // 'single' | 'tou' | 'both'
+let clOnlyFilter = false;
+
+function getFilteredResults() {
+  return results.filter(r => {
+    if (retailerFilter && !retailerFilter.has(r.retailer)) return false;
+    if (tariffFilter === 'single' && !r.pricingModel.startsWith('Single rate')) return false;
+    if (tariffFilter === 'tou' && !r.pricingModel.startsWith('Time of use')) return false;
+    if (clOnlyFilter && !r.hasControlledLoad) return false;
+    return true;
+  });
+}
+
+const retailerFilterEl = document.getElementById('retailerFilter');
+const retailerFilterToggle = document.getElementById('retailerFilterToggle');
+const retailerFilterPanel = document.getElementById('retailerFilterPanel');
+const sortKeySelect = document.getElementById('sortKeySelect');
+const sortDirToggle = document.getElementById('sortDirToggle');
+
+document.querySelectorAll('.toggle-btn[data-tariff]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.toggle-btn[data-tariff]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tariffFilter = btn.dataset.tariff;
+    sortAndRender();
+  });
+});
+
+document.getElementById('clFilter').addEventListener('change', (e) => {
+  clOnlyFilter = e.target.checked;
+  sortAndRender();
+});
+
+retailerFilterToggle.addEventListener('click', () => {
+  const nowHidden = retailerFilterPanel.classList.toggle('hidden');
+  retailerFilterToggle.setAttribute('aria-expanded', String(!nowHidden));
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#retailerFilter')) {
+    retailerFilterPanel.classList.add('hidden');
+    retailerFilterToggle.setAttribute('aria-expanded', 'false');
+  }
+});
+retailerFilterPanel.addEventListener('change', (e) => {
+  const boxes = Array.from(document.querySelectorAll('.retailer-checkbox'));
+  if (e.target.id === 'retailerFilterAll') {
+    boxes.forEach(cb => cb.checked = e.target.checked);
+  } else {
+    document.getElementById('retailerFilterAll').checked = boxes.every(cb => cb.checked);
+  }
+  const checked = boxes.filter(cb => cb.checked).map(cb => cb.value);
+  retailerFilter = checked.length === boxes.length ? null : new Set(checked);
+  updateRetailerToggleLabel();
+  sortAndRender();
+});
+function updateRetailerToggleLabel() {
+  const boxes = document.querySelectorAll('.retailer-checkbox');
+  const checkedCount = document.querySelectorAll('.retailer-checkbox:checked').length;
+  retailerFilterToggle.textContent = (checkedCount === boxes.length)
+    ? 'All retailers'
+    : `${checkedCount} of ${boxes.length} retailers`;
+}
+
+// Populates the retailer checklist and sort dropdown from the current
+// results set - called once per "Run comparison" since the retailer list
+// depends on what was actually loaded.
+function populateFilters() {
+  const retailers = Array.from(new Set(results.map(r => r.retailer))).sort((a, b) => a.localeCompare(b));
+  retailerFilterPanel.innerHTML = '';
+  const allLabel = document.createElement('label');
+  allLabel.innerHTML = `<input type="checkbox" id="retailerFilterAll" checked> Select All`;
+  retailerFilterPanel.appendChild(allLabel);
+  const divider = document.createElement('div');
+  divider.className = 'divider';
+  retailerFilterPanel.appendChild(divider);
+  retailers.forEach(name => {
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" class="retailer-checkbox" value="${escapeHtml(name)}" checked> ${escapeHtml(name)}`;
+    retailerFilterPanel.appendChild(lbl);
+  });
+  retailerFilter = null;
+  updateRetailerToggleLabel();
+
+  sortKeySelect.innerHTML = '';
+  document.querySelectorAll('#resultsTable thead th[data-key]').forEach(th => {
+    const opt = document.createElement('option');
+    opt.value = th.dataset.key;
+    opt.textContent = th.textContent.trim();
+    sortKeySelect.appendChild(opt);
+  });
+  syncSortControls();
+}
+
+function syncSortControls() {
+  sortKeySelect.value = sortKey;
+  sortDirToggle.textContent = sortAsc ? '↑ Asc' : '↓ Desc';
+}
+
+sortKeySelect.addEventListener('change', (e) => {
+  sortKey = e.target.value;
+  syncSortControls();
+  sortAndRender();
+});
+sortDirToggle.addEventListener('click', () => {
+  sortAsc = !sortAsc;
+  syncSortControls();
+  sortAndRender();
+});
+
+// Collapsing the input cards into a one-line summary after a successful run.
+const inputCards = document.getElementById('inputCards');
+const inputSummary = document.getElementById('inputSummary');
+function updateInputSummary() {
+  const postcode = document.getElementById('postcode').value.trim();
+  const supply = document.getElementById('currentSupply').value;
+  const rate = document.getElementById('currentUsageRate').value;
+  const parts = [];
+  if (usageDays) parts.push(`${usageDays.length} days of usage`);
+  if (plansData) parts.push(`${plansData.length} plans loaded`);
+  if (supply && rate) parts.push(`current plan ${supply}c/day + ${rate}c/kWh`);
+  if (postcode) parts.push(`postcode ${postcode}`);
+  document.getElementById('inputSummaryText').textContent = parts.join(' · ');
+}
+function collapseInputs() {
+  updateInputSummary();
+  inputCards.classList.add('hidden');
+  inputSummary.classList.remove('hidden');
+  inputSummary.setAttribute('aria-expanded', 'false');
+}
+function expandInputs() {
+  inputCards.classList.remove('hidden');
+  inputSummary.classList.add('hidden');
+}
+inputSummary.addEventListener('click', expandInputs);
+inputSummary.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandInputs(); }
+});
 
 function setStatus(el, msg, ok) {
   el.textContent = msg;
@@ -783,6 +1046,7 @@ document.getElementById('runBtn').addEventListener('click', () => {
   });
 
   renderResults(currentAnnualCost);
+  collapseInputs();
 });
 
 function renderResults(currentAnnualCost) {
@@ -799,12 +1063,14 @@ function renderResults(currentAnnualCost) {
   }
   summary.innerHTML = summaryHtml;
 
+  populateFilters();
   sortAndRender();
 
   document.querySelectorAll('#resultsTable th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
       if (sortKey === key) { sortAsc = !sortAsc; } else { sortKey = key; sortAsc = true; }
+      syncSortControls();
       sortAndRender();
     });
   });
@@ -815,7 +1081,7 @@ function sortAndRender() {
   const activeTh = document.querySelector(`#resultsTable th[data-key="${sortKey}"]`);
   if (activeTh) activeTh.classList.add('sorted');
 
-  const sorted = [...results].sort((a, b) => {
+  const sorted = getFilteredResults().sort((a, b) => {
     let av = a[sortKey], bv = b[sortKey];
     if (typeof av === 'string') av = av.toLowerCase();
     if (typeof bv === 'string') bv = bv.toLowerCase();
@@ -828,6 +1094,12 @@ function sortAndRender() {
 
   const tbody = document.getElementById('resultsBody');
   tbody.innerHTML = '';
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;color:var(--text-muted);padding:2rem;white-space:normal;">No plans match the current filters.</td></tr>`;
+    applyColumnVisibility(results);
+    return;
+  }
 
   // Formats a dollar diff with sign and color; null shows as a dash.
   function fmtDollarDiff(v) {
