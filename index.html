@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electricity plan comparison — Energex</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --card: #ffffff;
+    --border: #dedad0;
+    --border-strong: #c7c2b4;
+    --text: #1a1f1e;
+    --text-secondary: #5c6360;
+    --text-muted: #969188;
+    --ink: #0b3d3a;
+    --ink-light: #0f4d48;
+    --accent: #0f6e56;
+    --accent-light: #dcf0e6;
+    --accent-text: #0a4a3a;
+    --amber: #c17a1f;
+    --amber-light: #faeeda;
+    --amber-text: #7a4c0e;
+    --danger: #a3402d;
+    --danger-light: #fbe9e4;
+    --danger-text: #7a2e1f;
+    --radius: 10px;
+    --header-h: 42px;
+    --col1-w: 150px;
+    --col2-w: 260px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 2rem 1.5rem 4rem;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  .wrap.wide { max-width: none; }
+  h1 {
+    font-size: 23px; font-weight: 700; margin: 0 0 0.3rem;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--text-secondary); font-size: 14px; margin: 0 0 2rem; max-width: 700px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 0.75rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    max-width: 980px;
+  }
+  .card.results-card { max-width: none; }
+  .step-label {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--ink); color: white; font-size: 12px; font-weight: 700;
+    margin-right: 8px; flex-shrink: 0;
+  }
+  .step-title { display: flex; align-items: center; margin-bottom: 0.5rem; }
+  .step-desc { color: var(--text-secondary); font-size: 13px; margin: 0 0 1rem; }
+  input[type="file"] {
+    display: block; width: 100%; padding: 0.6rem; font-size: 13px;
+    border: 1px dashed var(--border-strong); border-radius: 8px; background: var(--bg);
+  }
+  .file-status { font-size: 13px; margin-top: 0.5rem; color: var(--text-secondary); }
+  .file-status.ok { color: var(--accent); font-weight: 500; }
+  .file-status.err { color: var(--danger); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; color: var(--text); }
+  input[type="number"], input[type="text"], select {
+    width: 100%; padding: 0.5rem 0.6rem; font-size: 14px;
+    border: 1px solid var(--border-strong); border-radius: 6px; background: white;
+    color: var(--text);
+  }
+  input[type="number"]:focus, input[type="text"]:focus {
+    outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(11,61,58,0.12);
+  }
+  .field { margin-bottom: 0.85rem; }
+  button.primary {
+    background: var(--ink); color: white; border: none; border-radius: 8px;
+    padding: 0.7rem 1.4rem; font-size: 14px; font-weight: 600; cursor: pointer;
+    margin-top: 0.5rem; transition: background 0.15s ease;
+  }
+  button.primary:disabled { background: #c8c6bc; cursor: not-allowed; }
+  button.primary:hover:not(:disabled) { background: var(--ink-light); }
+
+  .table-scroll {
+    overflow: auto;
+    max-height: 72vh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td:nth-child(2) {
+    white-space: normal;
+    width: var(--col2-w); min-width: var(--col2-w); max-width: var(--col2-w);
+  }
+  thead th {
+    position: sticky; top: 0; z-index: 3;
+    background: var(--ink); color: #ffffff;
+    font-weight: 600; cursor: pointer; user-select: none;
+    height: var(--header-h);
+    border-bottom: 1px solid var(--ink);
+  }
+  thead th:hover { background: var(--ink-light); }
+  thead th.sorted::after { content: " \25BC"; font-size: 9px; opacity: 0.85; }
+  th:first-child, td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    width: var(--col1-w); min-width: var(--col1-w); max-width: var(--col1-w);
+    white-space: normal;
+    background: var(--card);
+    box-shadow: 1px 0 0 var(--border);
+  }
+  th:nth-child(2), td:nth-child(2) {
+    position: sticky; left: var(--col1-w); z-index: 1;
+    background: var(--card);
+    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.12), 1px 0 0 var(--border);
+  }
+  thead th:first-child, thead th:nth-child(2) { z-index: 4; background: var(--ink); }
+  tbody tr:nth-child(even) td:first-child,
+  tbody tr:nth-child(even) td:nth-child(2) { background: #fbfaf7; }
+  tbody tr:nth-child(even) { background: #fbfaf7; }
+  tbody tr:hover td { background: var(--accent-light); }
+  tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2) { background: #d5ece1; }
+  tr.current-plan td:first-child { font-weight: 600; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: var(--amber-light); color: var(--amber-text); margin-left: 0; font-weight: 600;
+  }
+  .badge.save { background: var(--accent-light); color: var(--accent-text); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  #summary {
+    font-size: 14px; margin-bottom: 1rem; padding: 0.9rem 1.1rem;
+    background: var(--accent-light); border-radius: 8px; color: var(--accent-text);
+  }
+  #summary b { font-weight: 700; }
+  .hint {
+    font-size: 12px; color: var(--text-muted); margin-top: 0.75rem; max-width: 900px;
+  }
+  .error-box {
+    background: var(--danger-light); color: var(--danger-text); border-radius: 8px;
+    padding: 0.75rem 1rem; font-size: 13px; margin-top: 0.75rem;
+  }
+  .hidden { display: none; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 0.5rem; font-size: 13px; }
+  .plan-detail { font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+  .footer-note { font-size: 12px; color: var(--text-muted); margin-top: 2rem; text-align: center; }
+  a { color: var(--accent-text); }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>Electricity plan comparison — Energex (South East QLD)</h1>
+  <p class="subtitle">Ranks real electricity plans against your actual daily usage, using pricing effective from 1 July 2026. Demand-charge plans excluded.</p>
+
+  <div class="card">
+    <div class="step-title"><span class="step-label">1</span><h2>Your usage data</h2></div>
+    <p class="step-desc">Upload your usage CSV. Hourly interval data (one row per hour, ISO timestamps) gives exact time-of-use costing; daily totals also work, using a typical load-shape estimate for time-of-use plans instead. If your controlled load usage is already included in this file's totals, you don't need a separate upload.</p>
+    <input type="file" id="usageFile" accept=".csv" />
+    <div class="file-status" id="usageStatus">No file loaded yet.</div>
+  </div>
+
+  <div class="card">
+    <div class="step-title"><span class="step-label">2</span><h2>Market plans</h2></div>
+    <p class="step-desc">Upload the <code>energex_plans_raw.json</code> file produced by the fetch script. This has the full tariff detail needed for accurate time-of-use calculation.</p>
+    <input type="file" id="plansFile" accept=".json" />
+    <div class="file-status" id="plansStatus">No file loaded yet.</div>
+  </div>
+
+  <div class="card">
+    <div class="step-title"><span class="step-label">3</span><h2>Your current plan (optional, for comparison)</h2></div>
+    <p class="step-desc">So the results table can show how much better or worse other plans are, relative to what you're paying now with Alinta. Prefilled from your last bill — edit as needed.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label for="currentSupply">Daily supply charge (c/day)</label>
+        <input type="number" id="currentSupply" value="176.396" step="0.001" />
+      </div>
+      <div class="field">
+        <label for="currentUsageRate">Usage rate, single/anytime (c/kWh)</label>
+        <input type="number" id="currentUsageRate" value="35.101" step="0.001" />
+      </div>
+      <div class="field">
+        <label for="currentClSupply">Controlled load daily charge (c/day)</label>
+        <input type="number" id="currentClSupply" value="3.201" step="0.001" />
+      </div>
+      <div class="field">
+        <label for="currentClRate">Controlled load rate (c/kWh, reference only)</label>
+        <input type="number" id="currentClRate" value="24.222" step="0.001" />
+      </div>
+    </div>
+    <p class="hint">Controlled load energy is assumed to already be included in your main usage file and main usage rate above, so the CL rate above is used only to show a rate comparison column — it isn't added into the cost total (that would double-count the energy). Leave the supply/usage fields blank to skip the comparison — the ranking of market plans will still work fine.</p>
+  </div>
+
+  <div class="card">
+    <div class="step-title"><span class="step-label">3b</span><h2>Postcode</h2></div>
+    <p class="step-desc">Used to build working Energy Made Easy plan links (they require a postcode).</p>
+    <div class="field" style="max-width:160px;">
+      <label for="postcode">Postcode</label>
+      <input type="text" id="postcode" value="4069" maxlength="4" pattern="[0-9]{4}" />
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-title"><span class="step-label">4</span><h2>Run comparison</h2></div>
+    <button class="primary" id="runBtn" disabled>Load both files to enable</button>
+    <div id="errorBox"></div>
+  </div>
+
+  <div class="card results-card hidden" id="resultsCard">
+    <h2>Results</h2>
+    <div id="summary"></div>
+    <div class="table-scroll">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th data-key="retailer">Retailer</th>
+            <th data-key="planName">Plan</th>
+            <th data-key="pricingModel">Type</th>
+            <th data-key="annualCost" class="sorted num">Est. annual cost</th>
+            <th data-key="annualDiff" class="num">Yearly diff $</th>
+            <th data-key="vsCurrentPct" class="num">Yearly diff %</th>
+            <th data-key="usageDiff" class="num">Usage cost diff $/yr</th>
+            <th data-key="supplyDiff" class="num">Supply charge diff $/yr</th>
+            <th data-key="peakRate" class="num">Peak c/kWh</th>
+            <th data-key="peakRateDiff" class="num">Peak diff c/kWh</th>
+            <th data-key="offPeakRate" class="num">Off-peak c/kWh</th>
+            <th data-key="offPeakRateDiff" class="num">Off-peak diff c/kWh</th>
+            <th data-key="shoulderRate" class="num">Shoulder c/kWh</th>
+            <th data-key="shoulderRateDiff" class="num">Shoulder diff c/kWh</th>
+            <th data-key="dailyCharge" class="num">Daily charge c/day</th>
+            <th data-key="dailyChargeDiff" class="num">Daily charge diff c/day</th>
+            <th data-key="clDailyCharge" class="num">CL2 daily charge c/day</th>
+            <th data-key="clDailyChargeDiff" class="num">CL2 diff c/day</th>
+            <th data-key="planId">Plan ID</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Check the plan details for anything you're shortlisting.</p>
+  </div>
+
+  <p class="footer-note">Plan data sourced from the AER's Energy Made Easy CDR API. This tool runs entirely in your browser — no data leaves this page.</p>
+</div>
+
+<script>
+let usageIntervals = null; // [{ts: Date, kwh: number}] raw parsed rows, hourly or daily
+let usageDays = null;      // [{date:'YYYY-MM-DD', totalKwh, hourlyKwh:[24] or null}]
+let plansData = null;      // raw JSON from fetch script {plans: [...]}
+let results = [];
+let sortKey = 'annualCost';
+let sortAsc = true;
+
+const usageFileInput = document.getElementById('usageFile');
+const plansFileInput = document.getElementById('plansFile');
+const usageStatus = document.getElementById('usageStatus');
+const plansStatus = document.getElementById('plansStatus');
+const runBtn = document.getElementById('runBtn');
+const errorBox = document.getElementById('errorBox');
+
+function setStatus(el, msg, ok) {
+  el.textContent = msg;
+  el.className = 'file-status ' + (ok ? 'ok' : 'err');
+}
+
+function maybeEnableRun() {
+  if (usageDays && usageDays.length > 0 && plansData) {
+    runBtn.disabled = false;
+    runBtn.textContent = 'Compare ' + plansData.length + ' plans against your usage';
+  }
+}
+
+usageFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const intervals = parseUsageCsv(ev.target.result);
+      if (intervals.length === 0) {
+        setStatus(usageStatus, 'Parsed the file but found no valid date/kWh rows. Check the CSV columns.', false);
+        return;
+      }
+      usageDays = aggregateToDays(intervals);
+      const dates = usageDays.map(r => r.date).sort();
+      const isHourly = usageDays.some(d => d.hourlyKwh !== null);
+      setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}.`, true);
+      maybeEnableRun();
+    } catch (err) {
+      setStatus(usageStatus, 'Could not parse this file: ' + err.message, false);
+    }
+  };
+  reader.readAsText(file);
+});
+
+plansFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      plansData = parsed.plans || parsed; // support raw array or {plans:[...]}
+      if (!Array.isArray(plansData) || plansData.length === 0) {
+        setStatus(plansStatus, 'JSON parsed but no plans array found inside.', false);
+        return;
+      }
+      setStatus(plansStatus, `Loaded ${plansData.length} plans.`, true);
+      maybeEnableRun();
+    } catch (err) {
+      setStatus(plansStatus, 'Could not parse this file: ' + err.message, false);
+    }
+  };
+  reader.readAsText(file);
+});
+
+function parseUsageCsv(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+  const dateIdx = header.findIndex(h => /date/.test(h));
+  const kwhIdx = header.findIndex(h => /kwh|usage|consumption/.test(h));
+  if (dateIdx === -1 || kwhIdx === -1) {
+    throw new Error('Could not find date/kWh columns in header: ' + header.join(', '));
+  }
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const rawDate = cols[dateIdx];
+    const rawKwh = cols[kwhIdx];
+    if (!rawDate || rawKwh === undefined || rawKwh === '') continue;
+    const kwh = parseFloat(rawKwh);
+    if (isNaN(kwh)) continue;
+    const parsed = parseTimestamp(rawDate);
+    if (!parsed) continue;
+    rows.push({ date: parsed.date, hour: parsed.hour, hasTime: parsed.hasTime, kwh });
+  }
+  return rows;
+}
+
+// Groups raw rows (hourly or daily) into one entry per calendar day.
+// If the source data included a time component, hourlyKwh is a 24-length
+// array (hour 0-23) so plans can be costed with exact time-of-use matching.
+// If only daily totals were provided, hourlyKwh stays null and TOU plans
+// fall back to the load-shape estimate.
+function aggregateToDays(intervals) {
+  const byDate = new Map();
+  for (const row of intervals) {
+    if (!byDate.has(row.date)) {
+      byDate.set(row.date, { date: row.date, totalKwh: 0, hourlyKwh: row.hasTime ? new Array(24).fill(0) : null, sawTime: row.hasTime });
+    }
+    const entry = byDate.get(row.date);
+    entry.totalKwh += row.kwh;
+    if (row.hasTime && entry.hourlyKwh) {
+      entry.hourlyKwh[row.hour] += row.kwh;
+    } else if (row.hasTime && !entry.hourlyKwh) {
+      // mixed: this date previously had no time info, now does - upgrade it
+      entry.hourlyKwh = new Array(24).fill(0);
+      entry.hourlyKwh[row.hour] += row.kwh;
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function splitCsvLine(line) {
+  // basic CSV split handling quoted fields
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQuotes = !inQuotes; continue; }
+    if (c === ',' && !inQuotes) { out.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+// Parses a date, or a date+time timestamp, without doing any UTC/timezone
+// conversion - the hour is read literally as printed, matching how the
+// plan tariff windows (e.g. "16:00-20:59") are meant to be interpreted.
+function parseTimestamp(raw) {
+  raw = raw.trim();
+  // ISO with time: 2026-08-01T00:00:00.000 (with or without Z/offset)
+  const isoTimeMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/);
+  if (isoTimeMatch) {
+    return { date: isoTimeMatch[1], hour: parseInt(isoTimeMatch[2], 10), hasTime: true };
+  }
+  // ISO date only: 2026-08-01
+  const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (isoMatch) return { date: isoMatch[1], hour: 0, hasTime: false };
+  // Handle DD/MM/YYYY (optionally with time)
+  const dmyMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (dmyMatch) {
+    const [, d, m, y, h, min] = dmyMatch;
+    const date = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    if (h !== undefined) return { date, hour: parseInt(h, 10), hasTime: true };
+    return { date, hour: 0, hasTime: false };
+  }
+  return null;
+}
+
+function dayOfWeekFor(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  return days[d.getDay()];
+}
+
+// --- Cost engine ---------------------------------------------------------
+// IMPORTANT: rates and supply charges in the AER/Energy Made Easy CDR feed
+// are in DOLLARS (e.g. "0.4344" = 43.44 c/kWh), not cents - despite some
+// older CDS examples elsewhere showing cents. Verified against live plan
+// data pulled from cdr.energymadeeasy.gov.au. Do not re-divide by 100.
+//
+// dailySupplyCharge is singular in the live schema (not dailySupplyCharges).
+//
+// For time-of-use plans, if the uploaded usage has hourly resolution, each
+// hour's kWh is matched exactly against the plan's timeOfUse day/time
+// windows. If only daily totals are available, a typical residential
+// load-shape estimate is used instead and flagged in the results.
+//
+// controlledLoad sits on the contract itself (contract.controlledLoad),
+// as a sibling array to tariffPeriod - not nested inside each tariff
+// period. It is costed separately using the controlled-load usage file.
+
+const DEFAULT_TOU_WEIGHTS_BY_PREFIX = {
+  PEAK: 0.35,
+  SHOULDER: 0.40,   // matches SHOULDER, SHOULDER1, SHOULDER2, etc. by prefix
+  OFF_PEAK: 0.25,
+  OFFPEAK: 0.25,
+};
+
+function weightForBlockType(type) {
+  const t = (type || '').toUpperCase();
+  for (const prefix of Object.keys(DEFAULT_TOU_WEIGHTS_BY_PREFIX)) {
+    if (t.startsWith(prefix)) return DEFAULT_TOU_WEIGHTS_BY_PREFIX[prefix];
+  }
+  return null; // unknown - caller falls back to an even split
+}
+
+function toNum(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+// Determines which of a TOU block's day/time windows (if any) cover a given
+// day-of-week + hour, so hourly usage can be matched exactly.
+function hourMatchesTimeOfUse(touWindows, dow, hour) {
+  if (!touWindows) return false;
+  for (const w of touWindows) {
+    if (w.days && !w.days.includes(dow)) continue;
+    const startH = parseInt((w.startTime || '00:00').slice(0, 2), 10);
+    const endH = parseInt((w.endTime || '23:59').slice(0, 2), 10);
+    if (startH <= endH) {
+      if (hour >= startH && hour <= endH) return true;
+    } else {
+      // wraps past midnight
+      if (hour >= startH || hour <= endH) return true;
+    }
+  }
+  return false;
+}
+
+function costUsageAgainstTariffPeriod(tp, dayEntry) {
+  // Returns { cost, usedApprox } for ONE day's usage against ONE tariff period.
+  const dailySupply = toNum(tp.dailySupplyCharge ?? tp.dailySupplyCharges);
+  let cost = dailySupply;
+  let usedApprox = false;
+
+  if (tp.singleRate) {
+    const rate = toNum(tp.singleRate.rates?.[0]?.unitPrice);
+    cost += dayEntry.totalKwh * rate;
+  } else if (tp.timeOfUseRates) {
+    if (dayEntry.hourlyKwh) {
+      // Exact: match each hour of usage to the block whose day/time window covers it.
+      const dow = dayOfWeekFor(dayEntry.date);
+      for (let h = 0; h < 24; h++) {
+        const kwh = dayEntry.hourlyKwh[h];
+        if (!kwh) continue;
+        let matched = false;
+        for (const block of tp.timeOfUseRates) {
+          if (hourMatchesTimeOfUse(block.timeOfUse, dow, h)) {
+            cost += kwh * toNum(block.rates?.[0]?.unitPrice);
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          // Hour didn't fall in any defined window - use average rate as fallback.
+          const rates = tp.timeOfUseRates.map(b => toNum(b.rates?.[0]?.unitPrice));
+          const avg = rates.reduce((a, b) => a + b, 0) / (rates.length || 1);
+          cost += kwh * avg;
+        }
+      }
+    } else {
+      // Approximate: no hourly data, use typical load-shape weights.
+      usedApprox = true;
+      const knownWeights = tp.timeOfUseRates.map(b => weightForBlockType(b.type || b.displayName));
+      const hasAllWeights = knownWeights.every(w => w !== null);
+      const evenWeight = 1 / tp.timeOfUseRates.length;
+      tp.timeOfUseRates.forEach((block, i) => {
+        const weight = hasAllWeights ? knownWeights[i] : evenWeight;
+        cost += dayEntry.totalKwh * weight * toNum(block.rates?.[0]?.unitPrice);
+      });
+    }
+  }
+  return { cost, usedApprox };
+}
+
+// Controlled load: the person's usage data already includes CL energy
+// within the main meter's totals (no separately metered CL usage file),
+// so we do NOT re-cost that energy at the plan's CL rate - it's already
+// being charged at the main tariff rate above. What we DO need to add is
+// the separate controlled-load DAILY CHARGE line item, since that's a
+// distinct fixed cost on the bill regardless of how the energy is metered.
+function costControlledLoadDailyCharge(contract, days) {
+  const clDefs = contract.controlledLoad;
+  if (!clDefs || clDefs.length === 0 || !days || days.length === 0) return 0;
+  const clDef = clDefs[0]; // most residential plans have a single CL tariff
+  const dailyCharge = toNum(clDef.singleRate?.dailySupplyCharge ?? clDef.dailySupplyCharge);
+  return dailyCharge * days.length;
+}
+
+function computeAnnualCostForPlan(plan, usage) {
+  const contract = plan.electricityContract || {};
+  const tariffPeriods = contract.tariffPeriod || [];
+  if (tariffPeriods.length === 0) return null;
+
+  const totalDays = usage.length;
+  if (totalDays === 0) return null;
+  const scaleToYear = 365 / totalDays;
+
+  let totalCost = 0;
+  let usedApproxTou = false;
+
+  for (const dayEntry of usage) {
+    const monthDay = dayEntry.date.slice(5); // MM-DD
+    const tp = selectTariffPeriodForDate(tariffPeriods, monthDay);
+    if (!tp) continue;
+    const { cost, usedApprox } = costUsageAgainstTariffPeriod(tp, dayEntry);
+    totalCost += cost;
+    if (usedApprox) usedApproxTou = true;
+  }
+
+  totalCost += costControlledLoadDailyCharge(contract, usage);
+
+  // Apply guaranteed (non-conditional) percent-of-bill discounts.
+  const discounts = contract.discounts || contract.discount || [];
+  for (const d of discounts) {
+    if (d.methodUType === 'percentOfBill' && d.type !== 'CONDITIONAL') {
+      const rate = toNum(d.percentOfBill?.rate);
+      totalCost *= (1 - rate);
+    }
+  }
+
+  const annualCost = totalCost * scaleToYear;
+  return { annualCost, usedApproxTou, hasControlledLoad: !!contract.controlledLoad };
+}
+
+function selectTariffPeriodForDate(tariffPeriods, monthDay) {
+  if (tariffPeriods.length === 1) return tariffPeriods[0];
+  for (const tp of tariffPeriods) {
+    if (!tp.startDate || !tp.endDate) continue;
+    if (isMonthDayInRange(monthDay, tp.startDate, tp.endDate)) return tp;
+  }
+  return tariffPeriods[0]; // fallback
+}
+
+function isMonthDayInRange(monthDay, start, end) {
+  // start/end are "MM-DD" strings; range may wrap around year end (e.g. Nov 1 - Mar 31)
+  if (start <= end) {
+    return monthDay >= start && monthDay <= end;
+  }
+  return monthDay >= start || monthDay <= end;
+}
+
+function planPricingModelLabel(plan) {
+  const contract = plan.electricityContract || {};
+  const tps = contract.tariffPeriod || [];
+  let label = '—';
+  if (tps.some(tp => tp.timeOfUseRates)) label = 'Time of use';
+  else if (tps.some(tp => tp.singleRate)) label = 'Single rate';
+  if (contract.controlledLoad) label += ' + CL';
+  return label;
+}
+
+// Extracts representative rates for display/comparison columns. Uses the
+// first tariff period (most plans only have one; for seasonal plans this
+// shows the first-listed season, noted since an exact "current" period
+// depends on which date you'd be looking at it). A single-rate plan's rate
+// is shown under "peak" so it lines up with a single-rate current plan for
+// comparison purposes - it has no off-peak/shoulder rate.
+function extractDisplayRates(plan) {
+  const contract = plan.electricityContract || {};
+  const tp = (contract.tariffPeriod || [])[0];
+  const out = { peak: null, offPeak: null, shoulder: null, dailyCharge: null, clDailyCharge: null };
+  if (!tp) return out;
+
+  out.dailyCharge = toNum(tp.dailySupplyCharge ?? tp.dailySupplyCharges) * 100; // dollars -> cents
+
+  if (tp.singleRate) {
+    out.peak = toNum(tp.singleRate.rates?.[0]?.unitPrice) * 100;
+  } else if (tp.timeOfUseRates) {
+    for (const block of tp.timeOfUseRates) {
+      const type = (block.type || block.displayName || '').toUpperCase();
+      const rate = toNum(block.rates?.[0]?.unitPrice) * 100;
+      if (type.startsWith('PEAK')) out.peak = rate;
+      else if (type.startsWith('OFF_PEAK') || type.startsWith('OFFPEAK')) out.offPeak = rate;
+      else if (type.startsWith('SHOULDER')) {
+        // multiple shoulder blocks (SHOULDER1/2) - show the first, keep it simple
+        if (out.shoulder === null) out.shoulder = rate;
+      }
+    }
+  }
+
+  const clDefs = contract.controlledLoad;
+  if (clDefs && clDefs.length > 0) {
+    out.clDailyCharge = toNum(clDefs[0].singleRate?.dailySupplyCharge ?? clDefs[0].dailySupplyCharge) * 100;
+  }
+
+  return out;
+}
+
+function diffOrNull(planVal, currentVal) {
+  if (planVal === null || currentVal === null || isNaN(currentVal)) return null;
+  return planVal - currentVal;
+}
+
+// Retailers excluded entirely from comparison, by brandName (case-insensitive
+// substring match). Amber's filed rate is a nominal reference price, not
+// what customers are actually billed under their wholesale-variable pricing,
+// so including it alongside fixed-rate plans is misleading.
+const EXCLUDED_RETAILERS = ['amber'];
+
+function isExcludedRetailer(plan) {
+  const name = (plan.brandName || plan.brand || '').toLowerCase();
+  return EXCLUDED_RETAILERS.some(ex => name.includes(ex));
+}
+
+// Builds the Energy Made Easy plan-detail page URL from a planId, stripping
+// the "@EME" suffix some feeds append, and including the postcode parameter
+// EME requires. Verified against a live EME URL.
+function planUrl(planId, postcode) {
+  if (!planId) return null;
+  const cleanId = planId.replace(/@EME$/i, '');
+  let url = `https://www.energymadeeasy.gov.au/plan?id=${encodeURIComponent(cleanId)}`;
+  if (postcode) url += `&postcode=${encodeURIComponent(postcode)}`;
+  return url;
+}
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  errorBox.innerHTML = '';
+  results = [];
+  for (const plan of plansData) {
+    if (isExcludedRetailer(plan)) continue;
+    const calc = computeAnnualCostForPlan(plan, usageDays);
+    if (!calc) continue;
+    const rates = extractDisplayRates(plan);
+    results.push({
+      retailer: plan.brandName || plan.brand || '—',
+      planName: plan.displayName || plan.planName || plan.planId || '—',
+      planId: plan.planId || '',
+      planUrl: planUrl(plan.planId, document.getElementById('postcode').value.trim()),
+      pricingModel: planPricingModelLabel(plan),
+      annualCost: calc.annualCost,
+      usedApproxTou: calc.usedApproxTou,
+      hasControlledLoad: calc.hasControlledLoad,
+      peakRate: rates.peak,
+      offPeakRate: rates.offPeak,
+      shoulderRate: rates.shoulder,
+      dailyCharge: rates.dailyCharge,
+      clDailyCharge: rates.clDailyCharge,
+      raw: plan,
+    });
+  }
+
+  if (results.length === 0) {
+    errorBox.innerHTML = '<div class="error-box">No plans could be costed — check that the JSON file has the expected tariffPeriod structure.</div>';
+    return;
+  }
+
+  // Current plan comparison (rates entered in cents/kWh and cents/day, as
+  // that's how bills usually show them - converted to dollars here).
+  // Controlled load energy is assumed already included in totalKwh/currentRate
+  // above, so only its separate daily charge is added on top.
+  const currentSupply = parseFloat(document.getElementById('currentSupply').value);
+  const currentRate = parseFloat(document.getElementById('currentUsageRate').value);
+  const currentClSupply = parseFloat(document.getElementById('currentClSupply').value);
+  const currentClRate = parseFloat(document.getElementById('currentClRate').value);
+  let currentAnnualCost = null;
+  let totalDays = 0, totalKwh = 0, scaleToYear = 1;
+  if (!isNaN(currentSupply) && !isNaN(currentRate)) {
+    totalDays = usageDays.length;
+    totalKwh = usageDays.reduce((s, r) => s + r.totalKwh, 0);
+    scaleToYear = 365 / totalDays;
+    let cost = (currentSupply / 100) * totalDays + (currentRate / 100) * totalKwh;
+    if (!isNaN(currentClSupply)) {
+      cost += (currentClSupply / 100) * totalDays;
+    }
+    currentAnnualCost = cost * scaleToYear;
+  }
+
+  results.forEach(r => {
+    r.vsCurrentPct = currentAnnualCost ? ((r.annualCost - currentAnnualCost) / currentAnnualCost) * 100 : null;
+    r.annualDiff = currentAnnualCost ? (r.annualCost - currentAnnualCost) : null;
+
+    // Usage cost diff: (plan's peak/anytime rate - current rate) x annual kWh.
+    // Uses the plan's peak rate as its representative usage rate; for a
+    // single-rate current plan this is an apples-to-apples comparison, for
+    // a TOU plan it reflects the peak-window rate specifically.
+    if (currentAnnualCost && r.peakRate !== null && !isNaN(currentRate) && totalKwh > 0) {
+      const rateDiffDollars = (r.peakRate - currentRate) / 100;
+      r.usageDiff = rateDiffDollars * totalKwh * scaleToYear;
+    } else {
+      r.usageDiff = null;
+    }
+
+    // Supply charge diff: (plan's daily charge - current daily charge) x days/yr.
+    if (currentAnnualCost && r.dailyCharge !== null && !isNaN(currentSupply)) {
+      r.supplyDiff = ((r.dailyCharge - currentSupply) / 100) * 365;
+    } else {
+      r.supplyDiff = null;
+    }
+
+    r.peakRateDiff = diffOrNull(r.peakRate, isNaN(currentRate) ? null : currentRate);
+    r.offPeakRateDiff = diffOrNull(r.offPeakRate, null); // no current off-peak rate entered
+    r.shoulderRateDiff = diffOrNull(r.shoulderRate, null); // no current shoulder rate entered
+    r.dailyChargeDiff = diffOrNull(r.dailyCharge, isNaN(currentSupply) ? null : currentSupply);
+    r.clDailyChargeDiff = diffOrNull(r.clDailyCharge, isNaN(currentClSupply) ? null : currentClSupply);
+  });
+
+  renderResults(currentAnnualCost);
+});
+
+function renderResults(currentAnnualCost) {
+  document.getElementById('resultsCard').classList.remove('hidden');
+  document.querySelector('.wrap').classList.add('wide');
+  const summary = document.getElementById('summary');
+  const cheapest = [...results].sort((a,b) => a.annualCost - b.annualCost)[0];
+  let summaryHtml = `Compared <b>${results.length}</b> plans. Cheapest estimate: <b>${cheapest.retailer} — ${cheapest.planName}</b> at <b>$${cheapest.annualCost.toFixed(0)}/yr</b>.`;
+  if (currentAnnualCost) {
+    summaryHtml += ` Your current plan is estimated at <b>$${currentAnnualCost.toFixed(0)}/yr</b>.`;
+    const savings = currentAnnualCost - cheapest.annualCost;
+    if (savings > 0) {
+      summaryHtml += ` Potential saving: <b style="color:var(--accent)">$${savings.toFixed(0)}/yr</b>.`;
+    }
+  }
+  summary.innerHTML = summaryHtml;
+
+  sortAndRender();
+
+  document.querySelectorAll('#resultsTable th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) { sortAsc = !sortAsc; } else { sortKey = key; sortAsc = true; }
+      sortAndRender();
+    });
+  });
+}
+
+function sortAndRender() {
+  document.querySelectorAll('#resultsTable th').forEach(th => th.classList.remove('sorted'));
+  const activeTh = document.querySelector(`#resultsTable th[data-key="${sortKey}"]`);
+  if (activeTh) activeTh.classList.add('sorted');
+
+  const sorted = [...results].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av === null || av === undefined) return 1;
+    if (bv === null || bv === undefined) return -1;
+    if (av < bv) return sortAsc ? -1 : 1;
+    if (av > bv) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+
+  // Formats a dollar diff with sign and color; null shows as a dash.
+  function fmtDollarDiff(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    const cls = v <= 0 ? 'save' : '';
+    const sign = v > 0 ? '+' : '';
+    return `<span class="${cls === 'save' ? 'badge save' : ''}">${sign}$${v.toFixed(0)}</span>`;
+  }
+  // Formats a cents/kWh or cents/day diff; null shows as a dash (used for
+  // off-peak/shoulder where no current rate was entered to compare against).
+  function fmtCentsDiff(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(2)}c`;
+  }
+  function fmtCents(v) {
+    return (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(2) + 'c';
+  }
+
+  sorted.forEach(r => {
+    const tr = document.createElement('tr');
+    const vsCurrentCell = r.vsCurrentPct === null
+      ? '—'
+      : (r.vsCurrentPct <= 0
+          ? `<span class="badge save">${Math.abs(r.vsCurrentPct).toFixed(0)}% cheaper</span>`
+          : `<span class="badge">${r.vsCurrentPct.toFixed(0)}% dearer</span>`);
+    let detailNote = '';
+    if (r.usedApproxTou) detailNote += '<div class="plan-detail">TOU split estimated from typical load shape</div>';
+    if (r.hasControlledLoad) detailNote += '<div class="plan-detail">Includes controlled load daily charge</div>';
+    const planIdCell = r.planUrl
+      ? `<a href="${r.planUrl}" target="_blank" rel="noopener">${escapeHtml(r.planId)}</a>`
+      : escapeHtml(r.planId || '—');
+    tr.innerHTML = `
+      <td>${escapeHtml(r.retailer)}</td>
+      <td>${escapeHtml(r.planName)}${detailNote}</td>
+      <td>${r.pricingModel}</td>
+      <td class="num">$${r.annualCost.toFixed(0)}</td>
+      <td class="num">${fmtDollarDiff(r.annualDiff)}</td>
+      <td class="num">${vsCurrentCell}</td>
+      <td class="num">${fmtDollarDiff(r.usageDiff)}</td>
+      <td class="num">${fmtDollarDiff(r.supplyDiff)}</td>
+      <td class="num">${fmtCents(r.peakRate)}</td>
+      <td class="num">${fmtCentsDiff(r.peakRateDiff)}</td>
+      <td class="num">${fmtCents(r.offPeakRate)}</td>
+      <td class="num">${fmtCentsDiff(r.offPeakRateDiff)}</td>
+      <td class="num">${fmtCents(r.shoulderRate)}</td>
+      <td class="num">${fmtCentsDiff(r.shoulderRateDiff)}</td>
+      <td class="num">${fmtCents(r.dailyCharge)}</td>
+      <td class="num">${fmtCentsDiff(r.dailyChargeDiff)}</td>
+      <td class="num">${fmtCents(r.clDailyCharge)}</td>
+      <td class="num">${fmtCentsDiff(r.clDailyChargeDiff)}</td>
+      <td class="plan-detail">${planIdCell}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
