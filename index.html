@@ -6,25 +6,27 @@
 <title>Electricity plan comparison — Energex</title>
 <style>
   :root {
-    --bg: #f6f5f1;
-    --card: #ffffff;
-    --border: #dedad0;
-    --border-strong: #c7c2b4;
-    --text: #1a1f1e;
-    --text-secondary: #5c6360;
-    --text-muted: #969188;
-    --ink: #0b3d3a;
-    --ink-light: #0f4d48;
-    --accent: #0f6e56;
-    --accent-light: #dcf0e6;
-    --accent-text: #0a4a3a;
-    --amber: #c17a1f;
-    --amber-light: #faeeda;
-    --amber-text: #7a4c0e;
-    --danger: #a3402d;
-    --danger-light: #fbe9e4;
-    --danger-text: #7a2e1f;
-    --radius: 10px;
+    color-scheme: dark;
+    --bg: #0a0f1a;
+    --surface: #121a29;
+    --surface-2: #1a2436;
+    --border: #232f45;
+    --border-strong: #34405c;
+    --text: #e7ebf3;
+    --text-secondary: #9aa6bc;
+    --text-muted: #67728a;
+    --accent: #38bdf8;
+    --accent-hover: #0ea5e9;
+    --accent-contrast: #04121d;
+    --good: #34d399;
+    --good-bg: rgba(52, 211, 153, 0.12);
+    --good-text: #6ee7b7;
+    --bad: #f87171;
+    --bad-bg: rgba(248, 113, 113, 0.12);
+    --bad-text: #fca5a5;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --wrap-w: 720px;
     --header-h: 42px;
     --col1-w: 150px;
     --col2-w: 260px;
@@ -39,56 +41,62 @@
     padding: 2rem 1.5rem 4rem;
     overflow-x: hidden;
   }
-  .wrap { max-width: 980px; margin: 0 auto; }
-  .wrap.wide { max-width: none; }
+  ::selection { background: var(--accent); color: var(--accent-contrast); }
+  .wrap { margin: 0 auto; }
   h1 {
     font-size: 23px; font-weight: 700; margin: 0 0 0.3rem;
-    color: var(--ink); letter-spacing: -0.01em;
+    color: var(--text); letter-spacing: -0.01em;
   }
   .subtitle { color: var(--text-secondary); font-size: 14px; margin: 0 0 2rem; max-width: 700px; }
-  h2 { font-size: 16px; font-weight: 600; margin: 0 0 0.75rem; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 0.75rem; color: var(--text); }
   .card {
-    background: var(--card);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
-    max-width: 980px;
+    padding: 1.5rem 1.75rem;
+    margin: 0 auto 1.25rem;
+    max-width: var(--wrap-w);
   }
   .card.results-card { max-width: none; }
   .step-label {
     display: inline-flex; align-items: center; justify-content: center;
     width: 22px; height: 22px; border-radius: 50%;
-    background: var(--ink); color: white; font-size: 12px; font-weight: 700;
+    background: var(--surface-2); color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+    font-size: 12px; font-weight: 700;
     margin-right: 8px; flex-shrink: 0;
   }
   .step-title { display: flex; align-items: center; margin-bottom: 0.5rem; }
   .step-desc { color: var(--text-secondary); font-size: 13px; margin: 0 0 1rem; }
   input[type="file"] {
     display: block; width: 100%; padding: 0.6rem; font-size: 13px;
-    border: 1px dashed var(--border-strong); border-radius: 8px; background: var(--bg);
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text-secondary);
   }
   .file-status { font-size: 13px; margin-top: 0.5rem; color: var(--text-secondary); }
-  .file-status.ok { color: var(--accent); font-weight: 500; }
-  .file-status.err { color: var(--danger); }
+  .file-status.ok { color: var(--good-text); font-weight: 500; }
+  .file-status.err { color: var(--bad-text); }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; color: var(--text); }
+  label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; color: var(--text-secondary); }
   input[type="number"], input[type="text"], select {
     width: 100%; padding: 0.5rem 0.6rem; font-size: 14px;
-    border: 1px solid var(--border-strong); border-radius: 6px; background: white;
-    color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text);
   }
   input[type="number"]:focus, input[type="text"]:focus {
-    outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(11,61,58,0.12);
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
   }
   .field { margin-bottom: 0.85rem; }
   button.primary {
-    background: var(--ink); color: white; border: none; border-radius: 8px;
+    background: var(--accent); color: var(--accent-contrast); border: none; border-radius: var(--radius-sm);
     padding: 0.7rem 1.4rem; font-size: 14px; font-weight: 600; cursor: pointer;
     margin-top: 0.5rem; transition: background 0.15s ease;
   }
-  button.primary:disabled { background: #c8c6bc; cursor: not-allowed; }
-  button.primary:hover:not(:disabled) { background: var(--ink-light); }
+  button.primary:disabled { background: var(--surface-2); color: var(--text-muted); cursor: not-allowed; }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  button.primary:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
 
   .table-scroll {
     overflow: auto;
@@ -97,62 +105,64 @@
     border-radius: var(--radius);
   }
   table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   td:nth-child(2) {
     white-space: normal;
     width: var(--col2-w); min-width: var(--col2-w); max-width: var(--col2-w);
   }
   thead th {
     position: sticky; top: 0; z-index: 3;
-    background: var(--ink); color: #ffffff;
+    background: var(--surface-2); color: var(--text);
     font-weight: 600; cursor: pointer; user-select: none;
     height: var(--header-h);
-    border-bottom: 1px solid var(--ink);
+    border-bottom: 2px solid var(--border-strong);
   }
-  thead th:hover { background: var(--ink-light); }
+  thead th:hover { color: var(--accent); }
+  thead th.sorted { color: var(--accent); border-bottom-color: var(--accent); }
   thead th.sorted::after { content: " \25BC"; font-size: 9px; opacity: 0.85; }
   th:first-child, td:first-child {
     position: sticky; left: 0; z-index: 1;
     width: var(--col1-w); min-width: var(--col1-w); max-width: var(--col1-w);
     white-space: normal;
-    background: var(--card);
-    box-shadow: 1px 0 0 var(--border);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
   }
   th:nth-child(2), td:nth-child(2) {
     position: sticky; left: var(--col1-w); z-index: 1;
-    background: var(--card);
-    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.12), 1px 0 0 var(--border);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
   }
-  thead th:first-child, thead th:nth-child(2) { z-index: 4; background: var(--ink); }
+  thead th:first-child, thead th:nth-child(2) { z-index: 4; background: var(--surface-2); }
   tbody tr:nth-child(even) td:first-child,
-  tbody tr:nth-child(even) td:nth-child(2) { background: #fbfaf7; }
-  tbody tr:nth-child(even) { background: #fbfaf7; }
-  tbody tr:hover td { background: var(--accent-light); }
-  tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2) { background: #d5ece1; }
+  tbody tr:nth-child(even) td:nth-child(2) { background: var(--surface-2); }
+  tbody tr:nth-child(even) { background: var(--surface-2); }
+  tbody tr:hover td { background: rgba(56, 189, 248, 0.08); }
+  tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2) { background: rgba(56, 189, 248, 0.14); }
   tr.current-plan td:first-child { font-weight: 600; }
   .badge {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    background: var(--amber-light); color: var(--amber-text); margin-left: 0; font-weight: 600;
+    background: var(--bad-bg); color: var(--bad-text); margin-left: 0; font-weight: 600;
   }
-  .badge.save { background: var(--accent-light); color: var(--accent-text); }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge.save { background: var(--good-bg); color: var(--good-text); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
   #summary {
     font-size: 14px; margin-bottom: 1rem; padding: 0.9rem 1.1rem;
-    background: var(--accent-light); border-radius: 8px; color: var(--accent-text);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);
   }
   #summary b { font-weight: 700; }
   .hint {
     font-size: 12px; color: var(--text-muted); margin-top: 0.75rem; max-width: 900px;
   }
   .error-box {
-    background: var(--danger-light); color: var(--danger-text); border-radius: 8px;
+    background: var(--bad-bg); color: var(--bad-text); border: 1px solid var(--bad); border-radius: var(--radius-sm);
     padding: 0.75rem 1rem; font-size: 13px; margin-top: 0.75rem;
   }
   .hidden { display: none; }
-  .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 0.5rem; font-size: 13px; }
-  .plan-detail { font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+  .plan-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
   .footer-note { font-size: 12px; color: var(--text-muted); margin-top: 2rem; text-align: center; }
-  a { color: var(--accent-text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 </style>
 </head>
 
@@ -239,7 +249,6 @@
             <th data-key="dailyChargeDiff" class="num">Daily charge diff c/day</th>
             <th data-key="clDailyCharge" class="num">CL2 daily charge c/day</th>
             <th data-key="clDailyChargeDiff" class="num">CL2 diff c/day</th>
-            <th data-key="planId">Plan ID</th>
           </tr>
         </thead>
         <tbody id="resultsBody"></tbody>
@@ -764,7 +773,6 @@ document.getElementById('runBtn').addEventListener('click', () => {
 
 function renderResults(currentAnnualCost) {
   document.getElementById('resultsCard').classList.remove('hidden');
-  document.querySelector('.wrap').classList.add('wide');
   const summary = document.getElementById('summary');
   const cheapest = [...results].sort((a,b) => a.annualCost - b.annualCost)[0];
   let summaryHtml = `Compared <b>${results.length}</b> plans. Cheapest estimate: <b>${cheapest.retailer} — ${cheapest.planName}</b> at <b>$${cheapest.annualCost.toFixed(0)}/yr</b>.`;
@@ -772,7 +780,7 @@ function renderResults(currentAnnualCost) {
     summaryHtml += ` Your current plan is estimated at <b>$${currentAnnualCost.toFixed(0)}/yr</b>.`;
     const savings = currentAnnualCost - cheapest.annualCost;
     if (savings > 0) {
-      summaryHtml += ` Potential saving: <b style="color:var(--accent)">$${savings.toFixed(0)}/yr</b>.`;
+      summaryHtml += ` Potential saving: <b style="color:var(--good)">$${savings.toFixed(0)}/yr</b>.`;
     }
   }
   summary.innerHTML = summaryHtml;
@@ -835,12 +843,12 @@ function sortAndRender() {
     let detailNote = '';
     if (r.usedApproxTou) detailNote += '<div class="plan-detail">TOU split estimated from typical load shape</div>';
     if (r.hasControlledLoad) detailNote += '<div class="plan-detail">Includes controlled load daily charge</div>';
-    const planIdCell = r.planUrl
-      ? `<a href="${r.planUrl}" target="_blank" rel="noopener">${escapeHtml(r.planId)}</a>`
-      : escapeHtml(r.planId || '—');
+    const planNameCell = r.planUrl
+      ? `<a href="${r.planUrl}" target="_blank" rel="noopener">${escapeHtml(r.planName)}</a>`
+      : escapeHtml(r.planName);
     tr.innerHTML = `
       <td>${escapeHtml(r.retailer)}</td>
-      <td>${escapeHtml(r.planName)}${detailNote}</td>
+      <td>${planNameCell}${detailNote}</td>
       <td>${r.pricingModel}</td>
       <td class="num">$${r.annualCost.toFixed(0)}</td>
       <td class="num">${fmtDollarDiff(r.annualDiff)}</td>
@@ -857,7 +865,6 @@ function sortAndRender() {
       <td class="num">${fmtCentsDiff(r.dailyChargeDiff)}</td>
       <td class="num">${fmtCents(r.clDailyCharge)}</td>
       <td class="num">${fmtCentsDiff(r.clDailyChargeDiff)}</td>
-      <td class="plan-detail">${planIdCell}</td>
     `;
     tbody.appendChild(tr);
   });
