@@ -278,26 +278,43 @@ function maybeEnableRun() {
   }
 }
 
+function loadUsageText(text, sourceLabel) {
+  try {
+    const intervals = parseUsageCsv(text);
+    if (intervals.length === 0) {
+      setStatus(usageStatus, 'Parsed the file but found no valid date/kWh rows. Check the CSV columns.', false);
+      return;
+    }
+    usageDays = aggregateToDays(intervals);
+    const dates = usageDays.map(r => r.date).sort();
+    const isHourly = usageDays.some(d => d.hourlyKwh !== null);
+    setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}${sourceLabel || ''}.`, true);
+    maybeEnableRun();
+  } catch (err) {
+    setStatus(usageStatus, 'Could not parse this file: ' + err.message, false);
+  }
+}
+
+function loadPlansText(text, sourceLabel) {
+  try {
+    const parsed = JSON.parse(text);
+    plansData = parsed.plans || parsed; // support raw array or {plans:[...]}
+    if (!Array.isArray(plansData) || plansData.length === 0) {
+      setStatus(plansStatus, 'JSON parsed but no plans array found inside.', false);
+      return;
+    }
+    setStatus(plansStatus, `Loaded ${plansData.length} plans${sourceLabel || ''}.`, true);
+    maybeEnableRun();
+  } catch (err) {
+    setStatus(plansStatus, 'Could not parse this file: ' + err.message, false);
+  }
+}
+
 usageFileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const intervals = parseUsageCsv(ev.target.result);
-      if (intervals.length === 0) {
-        setStatus(usageStatus, 'Parsed the file but found no valid date/kWh rows. Check the CSV columns.', false);
-        return;
-      }
-      usageDays = aggregateToDays(intervals);
-      const dates = usageDays.map(r => r.date).sort();
-      const isHourly = usageDays.some(d => d.hourlyKwh !== null);
-      setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}.`, true);
-      maybeEnableRun();
-    } catch (err) {
-      setStatus(usageStatus, 'Could not parse this file: ' + err.message, false);
-    }
-  };
+  reader.onload = (ev) => loadUsageText(ev.target.result, '');
   reader.readAsText(file);
 });
 
@@ -305,22 +322,26 @@ plansFileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const parsed = JSON.parse(ev.target.result);
-      plansData = parsed.plans || parsed; // support raw array or {plans:[...]}
-      if (!Array.isArray(plansData) || plansData.length === 0) {
-        setStatus(plansStatus, 'JSON parsed but no plans array found inside.', false);
-        return;
-      }
-      setStatus(plansStatus, `Loaded ${plansData.length} plans.`, true);
-      maybeEnableRun();
-    } catch (err) {
-      setStatus(plansStatus, 'Could not parse this file: ' + err.message, false);
-    }
-  };
+  reader.onload = (ev) => loadPlansText(ev.target.result, '');
   reader.readAsText(file);
 });
+
+// Auto-loads the demo files from data/ on page open, so the page is usable
+// without any upload. A manual upload afterwards just overwrites usageDays/
+// plansData as normal. fetch() of local files needs http(s), not file:// -
+// on GitHub Pages this just works; opening index.html directly from disk
+// silently skips it and the page falls back to manual upload only.
+async function loadDefaults() {
+  try {
+    const res = await fetch('data/usage-demo.csv');
+    if (res.ok) loadUsageText(await res.text(), ' (demo data)');
+  } catch (err) { /* file://, offline, etc. - manual upload still works */ }
+  try {
+    const res = await fetch('data/energex_plans_raw.json');
+    if (res.ok) loadPlansText(await res.text(), ' (demo data)');
+  } catch (err) { /* same as above */ }
+}
+loadDefaults();
 
 function parseUsageCsv(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
