@@ -363,15 +363,12 @@
 
   <div class="card">
     <div class="step-title"><span class="step-label">5</span><h2>Run comparison</h2></div>
+    <label class="switch-label" for="payOnTimeToggle" style="margin-bottom: 1rem;">
+      <span class="switch"><input type="checkbox" id="payOnTimeToggle" /><span class="switch-track"></span></span>
+      <span>I always pay on time by direct debit - include conditional pay-on-time/direct-debit discounts</span>
+    </label>
     <button class="primary" id="runBtn" disabled>Load both files to enable</button>
     <div id="errorBox"></div>
-  </div>
-
-  <div class="card hidden" id="tabsCard">
-    <div class="tabs" role="tablist">
-      <button type="button" class="tab-btn active" data-tab="comparison" role="tab" aria-selected="true">Plan comparison</button>
-      <button type="button" class="tab-btn" data-tab="hourly" role="tab" aria-selected="false">Hourly usage</button>
-    </div>
   </div>
 
   <div class="card results-card hidden" id="hourlyUsageCard">
@@ -1042,10 +1039,17 @@ function computeAnnualCostForPlan(plan, usage, includePayOnTimeDiscounts) {
 
   totalCost += costControlledLoadDailyCharge(contract, usage);
 
-  // Apply guaranteed (non-conditional) percent-of-bill discounts.
+  // Apply guaranteed (non-conditional) percent-of-bill discounts, plus
+  // conditional pay-on-time/direct-debit ones if the user opted in - those
+  // are the only conditional discount category applied here; one-off
+  // sign-up credits (CONDITIONAL, category OTHER, fixedAmount) are handled
+  // separately in extractSignUpCredit, not folded into annual cost.
   const discounts = contract.discounts || contract.discount || [];
   for (const d of discounts) {
-    if (d.methodUType === 'percentOfBill' && d.type !== 'CONDITIONAL') {
+    if (d.methodUType !== 'percentOfBill') continue;
+    const isGuaranteed = d.type !== 'CONDITIONAL';
+    const isOptedInPayOnTime = includePayOnTimeDiscounts && PAY_ON_TIME_DISCOUNT_CATEGORIES.includes(d.category);
+    if (isGuaranteed || isOptedInPayOnTime) {
       const rate = toNum(d.percentOfBill?.rate);
       totalCost *= (1 - rate);
     }
@@ -1192,13 +1196,15 @@ document.getElementById('runBtn').addEventListener('click', () => {
   errorBox.innerHTML = '';
   results = [];
   const usageHasSolar = usageDays.some(d => d.totalSolarKwh !== null);
+  const includePayOnTimeDiscounts = document.getElementById('payOnTimeToggle').checked;
   for (const plan of plansData) {
     if (isExcludedRetailer(plan)) continue;
-    const calc = computeAnnualCostForPlan(plan, usageDays);
+    const calc = computeAnnualCostForPlan(plan, usageDays, includePayOnTimeDiscounts);
     if (!calc) continue;
     const rates = extractDisplayRates(plan);
     const solarRate = extractSolarFeedInRate(plan);
     const solarCredit = usageHasSolar ? computeSolarCreditForYear(solarRate, usageDays) : 0;
+    const signUpCredit = extractSignUpCredit(plan);
     results.push({
       retailer: plan.brandName || plan.brand || '—',
       planName: plan.displayName || plan.planName || plan.planId || '—',
