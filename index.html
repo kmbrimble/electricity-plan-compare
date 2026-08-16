@@ -437,17 +437,18 @@
             <th data-key="shoulderRateDiff" class="num">Shoulder diff c/kWh</th>
             <th data-key="dailyCharge" class="num">Daily charge c/day</th>
             <th data-key="dailyChargeDiff" class="num">Daily charge diff c/day</th>
-            <th data-key="clDailyCharge" class="num">CL2 daily charge c/day</th>
-            <th data-key="clDailyChargeDiff" class="num">CL2 diff c/day</th>
+            <th data-key="clDailyCharge" class="num">CL daily charge c/day</th>
+            <th data-key="clDailyChargeDiff" class="num">CL diff c/day</th>
           </tr>
         </thead>
         <tbody id="resultsBody"></tbody>
       </table>
     </div>
-    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts. Green power surcharges, one-off sign-up credits, and pay-on-time conditional discounts are not included. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Usage cost diff and supply charge diff only compare the plan's peak/anytime rate and main daily charge against your current plan — "Other diff" is the remainder (off-peak/shoulder usage, controlled load charges, discounts) so the three always add up to the total yearly diff. Solar credit is estimated from your uploaded export data against each plan's feed-in tariff and is already netted into the annual cost above (shown as $0 if you have no solar data or a plan has no feed-in tariff, rather than hidden). Columns with no data for any plan (e.g. off-peak diff, if you haven't entered a current off-peak rate) are hidden automatically. Check the plan details for anything you're shortlisting.</p>
+    <p class="hint">Estimates use your uploaded usage history scaled to a full year (or the exact period covered if less than a year), applying each plan's tariff structure — using exact hour-by-hour matching for time-of-use plans when your usage data has hourly resolution, or a typical load-shape estimate otherwise (flagged per row) — plus daily supply charges, controlled load charges (when CL usage is uploaded), and any guaranteed discounts, plus conditional pay-on-time/direct-debit discounts if you've ticked that box above. Green power surcharges are not included. One-off sign-up credits are excluded from "Est. annual cost" (they don't repeat every year, so including them would make a plan look cheapest for the wrong reason) but are reflected in "Year 1 cost $", a separate one-time-only figure. Plans from wholesale/variable-pricing retailers (e.g. Amber) show their filed reference rate, not real wholesale pricing, so treat those figures as a rough guide only. Usage cost diff and supply charge diff only compare the plan's peak/anytime rate and main daily charge against your current plan — "Other diff" is the remainder (off-peak/shoulder usage, controlled load charges, discounts) so the three always add up to the total yearly diff. Solar credit is estimated from your uploaded export data against each plan's feed-in tariff and is already netted into the annual cost above (shown as $0 if you have no solar data or a plan has no feed-in tariff, rather than hidden). Columns with no data for any plan (e.g. off-peak diff, if you haven't entered a current off-peak rate) are hidden automatically. Check the plan details for anything you're shortlisting.</p>
   </div>
 
   <p class="footer-note">Plan data sourced from the AER's Energy Made Easy CDR API. This tool runs entirely in your browser — no data leaves this page.</p>
+  <p class="footer-note"><a href="https://github.com/kmbrimble/electricity-plan-compare" target="_blank" rel="noopener">GitHub repo</a> · <a href="https://github.com/kmbrimble/electricity-plan-compare/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a> · <a href="https://github.com/kmbrimble" target="_blank" rel="noopener">kmbrimble</a></p>
 </div>
 
 <script>
