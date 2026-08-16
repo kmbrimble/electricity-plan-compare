@@ -421,6 +421,7 @@
             <th data-key="planName">Plan</th>
             <th data-key="pricingModel">Type</th>
             <th data-key="annualCost" class="sorted num">Est. annual cost</th>
+            <th data-key="yearOneCost" class="num">Year 1 cost $</th>
             <th data-key="annualDiff" class="num">Yearly diff $</th>
             <th data-key="vsCurrentPct" class="num">Yearly diff %</th>
             <th data-key="usageDiff" class="num">Usage cost diff $/yr</th>
@@ -1138,6 +1139,22 @@ function extractSolarFeedInRate(plan) {
   return toNum(tariffs[0].singleTariff?.rates?.[0]?.unitPrice);
 }
 
+// One-off sign-up credits (CONDITIONAL discount, fixedAmount, category
+// OTHER - e.g. "$300 credit after 6 months") are a real dollars-in-your-
+// pocket amount, but only in year 1: unlike a recurring discount they don't
+// repeat annually, so folding them into the ongoing "Est. annual cost" used
+// for ranking would understate every subsequent year's cost and could rank
+// a plan as cheapest purely on a one-time bonus. Kept separate and only
+// applied to the Year 1 cost column instead. Plans with no such credit
+// genuinely get $0, same convention as extractSolarFeedInRate above.
+function extractSignUpCredit(plan) {
+  const contract = plan.electricityContract || {};
+  const discounts = contract.discounts || contract.discount || [];
+  return discounts
+    .filter(d => d.type === 'CONDITIONAL' && d.methodUType === 'fixedAmount')
+    .reduce((s, d) => s + toNum(d.fixedAmount?.amount), 0);
+}
+
 // Annualizes a solar credit the same way plan costs are annualized: sum the
 // exported kWh across the uploaded period, multiply by the rate, scale by
 // 365/days-in-period.
@@ -1216,6 +1233,8 @@ document.getElementById('runBtn').addEventListener('click', () => {
       // credit itself stays visible as its own column below.
       annualCost: calc.annualCost - solarCredit,
       solarCredit,
+      signUpCredit,
+      yearOneCost: calc.annualCost - solarCredit - signUpCredit,
       usedApproxTou: calc.usedApproxTou,
       hasControlledLoad: calc.hasControlledLoad,
       peakRate: rates.peak,
@@ -1422,6 +1441,7 @@ function sortAndRender() {
       <td>${planNameCell}${detailNote}</td>
       <td>${r.pricingModel}</td>
       <td class="num">$${r.annualCost.toFixed(0)}</td>
+      <td class="num">$${r.yearOneCost.toFixed(0)}</td>
       <td class="num">${fmtDollarDiff(r.annualDiff)}</td>
       <td class="num">${vsCurrentCell}</td>
       <td class="num">${fmtDollarDiff(r.usageDiff)}</td>
