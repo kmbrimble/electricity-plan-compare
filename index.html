@@ -895,6 +895,17 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
+// The CDR/Energy Made Easy feed reports all retailer charges (daily supply,
+// usage/TOU rates, CL daily charges) ex-GST. Real bills include GST, so
+// every plan-side charge/rate is grossed up by 10% here. Does NOT apply to
+// the user's own "current plan" inputs (already GST-inclusive, taken
+// straight off a real bill) or to solar feed-in credit rates (a payment
+// made to the customer, not a taxable supply by them).
+const GST_MULTIPLIER = 1.1;
+function toNumGst(v) {
+  return toNum(v) * GST_MULTIPLIER;
+}
+
 // Determines which of a TOU block's day/time windows (if any) cover a given
 // day-of-week + hour, so hourly usage can be matched exactly.
 function hourMatchesTimeOfUse(touWindows, dow, hour) {
@@ -913,36 +924,67 @@ function hourMatchesTimeOfUse(touWindows, dow, hour) {
   return false;
 }
 
+// Prices a day's kWh against a (possibly tiered/block) rates array. Rates
+// are ordered ascending; all but the last tier typically carry a `volume` -
+// the cumulative daily kWh threshold up to which that tier applies - and
+// the last tier (no volume) covers everything beyond. Single-rate plans
+// just have one entry, so this reduces to `kwh * price`.
+function costKwhAgainstTieredRates(rates, kwh) {
+  if (!rates || rates.length === 0 || kwh <= 0) return 0;
+  if (rates.length === 1) return kwh * toNumGst(rates[0].unitPrice);
+  let cost = 0;
+  let remaining = kwh;
+  let usedVolume = 0;
+  for (const tier of rates) {
+    if (remaining <= 0) break;
+    const tierSize = tier.volume != null ? Math.max(0, tier.volume - usedVolume) : Infinity;
+    const kwhInTier = Math.min(remaining, tierSize);
+    cost += kwhInTier * toNumGst(tier.unitPrice);
+    remaining -= kwhInTier;
+    if (tier.volume != null) usedVolume = tier.volume;
+  }
+  return cost;
+}
+
 function costUsageAgainstTariffPeriod(tp, dayEntry) {
   // Returns { cost, usedApprox } for ONE day's usage against ONE tariff period.
-  const dailySupply = toNum(tp.dailySupplyCharge ?? tp.dailySupplyCharges);
+  const dailySupply = toNumGst(tp.dailySupplyCharge ?? tp.dailySupplyCharges);
   let cost = dailySupply;
   let usedApprox = false;
 
   if (tp.singleRate) {
-    const rate = toNum(tp.singleRate.rates?.[0]?.unitPrice);
-    cost += dayEntry.totalKwh * rate;
+    cost += costKwhAgainstTieredRates(tp.singleRate.rates, dayEntry.totalKwh);
   } else if (tp.timeOfUseRates) {
     if (dayEntry.hourlyKwh) {
-      // Exact: match each hour of usage to the block whose day/time window covers it.
+      // Exact: match each hour to its block, accumulate kWh per block over
+      // the whole day, then price each block's daily total - tiers are a
+      // daily threshold, not an hourly one, so pricing must happen after
+      // the day's kWh for that block is fully known.
       const dow = dayOfWeekFor(dayEntry.date);
+      const blockKwh = tp.timeOfUseRates.map(() => 0);
+      let unmatchedKwh = 0;
       for (let h = 0; h < 24; h++) {
         const kwh = dayEntry.hourlyKwh[h];
         if (!kwh) continue;
         let matched = false;
-        for (const block of tp.timeOfUseRates) {
-          if (hourMatchesTimeOfUse(block.timeOfUse, dow, h)) {
-            cost += kwh * toNum(block.rates?.[0]?.unitPrice);
+        for (let i = 0; i < tp.timeOfUseRates.length; i++) {
+          if (hourMatchesTimeOfUse(tp.timeOfUseRates[i].timeOfUse, dow, h)) {
+            blockKwh[i] += kwh;
             matched = true;
             break;
           }
         }
-        if (!matched) {
-          // Hour didn't fall in any defined window - use average rate as fallback.
-          const rates = tp.timeOfUseRates.map(b => toNum(b.rates?.[0]?.unitPrice));
-          const avg = rates.reduce((a, b) => a + b, 0) / (rates.length || 1);
-          cost += kwh * avg;
-        }
+        if (!matched) unmatchedKwh += kwh;
+      }
+      tp.timeOfUseRates.forEach((block, i) => {
+        cost += costKwhAgainstTieredRates(block.rates, blockKwh[i]);
+      });
+      if (unmatchedKwh > 0) {
+        // Hours that didn't fall in any defined window - use average
+        // entry-tier rate across blocks as a fallback.
+        const rates = tp.timeOfUseRates.map(b => toNumGst(b.rates?.[0]?.unitPrice));
+        const avg = rates.reduce((a, b) => a + b, 0) / (rates.length || 1);
+        cost += unmatchedKwh * avg;
       }
     } else {
       // Approximate: no hourly data, use typical load-shape weights.
@@ -952,7 +994,7 @@ function costUsageAgainstTariffPeriod(tp, dayEntry) {
       const evenWeight = 1 / tp.timeOfUseRates.length;
       tp.timeOfUseRates.forEach((block, i) => {
         const weight = hasAllWeights ? knownWeights[i] : evenWeight;
-        cost += dayEntry.totalKwh * weight * toNum(block.rates?.[0]?.unitPrice);
+        cost += costKwhAgainstTieredRates(block.rates, dayEntry.totalKwh * weight);
       });
     }
   }
@@ -968,12 +1010,16 @@ function costUsageAgainstTariffPeriod(tp, dayEntry) {
 function costControlledLoadDailyCharge(contract, days) {
   const clDefs = contract.controlledLoad;
   if (!clDefs || clDefs.length === 0 || !days || days.length === 0) return 0;
-  const clDef = clDefs[0]; // most residential plans have a single CL tariff
-  const dailyCharge = toNum(clDef.singleRate?.dailySupplyCharge ?? clDef.dailySupplyCharge);
+  // Some plans have two CL tariffs (e.g. CL1 + CL2, separately metered
+  // circuits) - both carry their own daily charge on a real bill, so sum
+  // across all of them rather than just the first.
+  const dailyCharge = clDefs.reduce((s, d) => s + toNumGst(d.singleRate?.dailySupplyCharge ?? d.dailySupplyCharge), 0);
   return dailyCharge * days.length;
 }
 
-function computeAnnualCostForPlan(plan, usage) {
+const PAY_ON_TIME_DISCOUNT_CATEGORIES = ['DIRECT_DEBIT', 'PAY_ON_TIME'];
+
+function computeAnnualCostForPlan(plan, usage, includePayOnTimeDiscounts) {
   const contract = plan.electricityContract || {};
   const tariffPeriods = contract.tariffPeriod || [];
   if (tariffPeriods.length === 0) return null;
@@ -1041,21 +1087,23 @@ function planPricingModelLabel(plan) {
 // shows the first-listed season, noted since an exact "current" period
 // depends on which date you'd be looking at it). A single-rate plan's rate
 // is shown under "peak" so it lines up with a single-rate current plan for
-// comparison purposes - it has no off-peak/shoulder rate.
+// comparison purposes - it has no off-peak/shoulder rate. For tiered/block
+// rates, only the first (entry) tier is shown here - actual annual cost
+// still correctly applies every tier via costKwhAgainstTieredRates.
 function extractDisplayRates(plan) {
   const contract = plan.electricityContract || {};
   const tp = (contract.tariffPeriod || [])[0];
   const out = { peak: null, offPeak: null, shoulder: null, dailyCharge: null, clDailyCharge: null };
   if (!tp) return out;
 
-  out.dailyCharge = toNum(tp.dailySupplyCharge ?? tp.dailySupplyCharges) * 100; // dollars -> cents
+  out.dailyCharge = toNumGst(tp.dailySupplyCharge ?? tp.dailySupplyCharges) * 100; // dollars -> cents
 
   if (tp.singleRate) {
-    out.peak = toNum(tp.singleRate.rates?.[0]?.unitPrice) * 100;
+    out.peak = toNumGst(tp.singleRate.rates?.[0]?.unitPrice) * 100;
   } else if (tp.timeOfUseRates) {
     for (const block of tp.timeOfUseRates) {
       const type = (block.type || block.displayName || '').toUpperCase();
-      const rate = toNum(block.rates?.[0]?.unitPrice) * 100;
+      const rate = toNumGst(block.rates?.[0]?.unitPrice) * 100;
       if (type.startsWith('PEAK')) out.peak = rate;
       else if (type.startsWith('OFF_PEAK') || type.startsWith('OFFPEAK')) out.offPeak = rate;
       else if (type.startsWith('SHOULDER')) {
@@ -1067,7 +1115,8 @@ function extractDisplayRates(plan) {
 
   const clDefs = contract.controlledLoad;
   if (clDefs && clDefs.length > 0) {
-    out.clDailyCharge = toNum(clDefs[0].singleRate?.dailySupplyCharge ?? clDefs[0].dailySupplyCharge) * 100;
+    // Summed across all CL tariffs (e.g. CL1 + CL2) to match the cost engine.
+    out.clDailyCharge = clDefs.reduce((s, d) => s + toNumGst(d.singleRate?.dailySupplyCharge ?? d.dailySupplyCharge), 0) * 100;
   }
 
   return out;
