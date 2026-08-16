@@ -301,7 +301,15 @@
   <h1>Electricity plan comparison — Energex (South East QLD)</h1>
   <p class="subtitle">Ranks real electricity plans against your actual daily usage, using pricing effective from 1 July 2026. Demand-charge plans excluded.</p>
 
+  <div class="card hidden" id="tabsCard">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="comparison" role="tab" aria-selected="true">Plan comparison</button>
+      <button type="button" class="tab-btn" data-tab="hourly" role="tab" aria-selected="false">Hourly usage</button>
+    </div>
+  </div>
+
   <div id="inputCards">
+  <button type="button" class="link-btn hidden" id="collapseInputsBtn" style="margin-bottom: 1rem;">▴ Collapse back to summary</button>
   <div class="card">
     <div class="step-title"><span class="step-label">1</span><h2>Your usage data</h2></div>
     <p class="step-desc">Upload your usage CSV. Hourly interval data (one row per hour, ISO timestamps) gives exact time-of-use costing; daily totals also work, using a typical load-shape estimate for time-of-use plans instead. If your controlled load usage is already included in this file's totals, you don't need a separate upload.</p>
@@ -586,6 +594,7 @@ sortDirToggle.addEventListener('click', () => {
 // Collapsing the input cards into a one-line summary after a successful run.
 const inputCards = document.getElementById('inputCards');
 const inputSummary = document.getElementById('inputSummary');
+const collapseInputsBtn = document.getElementById('collapseInputsBtn');
 function updateInputSummary() {
   const postcode = document.getElementById('postcode').value.trim();
   const supply = document.getElementById('currentSupply').value;
@@ -606,8 +615,10 @@ function collapseInputs() {
 function expandInputs() {
   inputCards.classList.remove('hidden');
   inputSummary.classList.add('hidden');
+  collapseInputsBtn.classList.remove('hidden');
 }
 inputSummary.addEventListener('click', expandInputs);
+collapseInputsBtn.addEventListener('click', collapseInputs);
 inputSummary.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandInputs(); }
 });
