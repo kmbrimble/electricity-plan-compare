@@ -282,6 +282,55 @@
   .link-btn:hover { text-decoration: underline; }
   .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+
+  /* Small screens: the 22-column table becomes one card per plan. */
+  .m-more { display: none; }
+  @media (max-width: 640px) {
+    body { padding: 1rem 0.75rem 3rem; }
+    .card { padding: 1rem; }
+    .table-scroll { max-height: none; overflow: visible; border: none; border-radius: 0; scrollbar-gutter: auto; }
+    table, tbody { display: block; width: 100%; min-width: 0; }
+    thead { display: none; }
+    tbody tr {
+      display: block; margin-bottom: 0.75rem; padding: 0.25rem 0;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    }
+    tbody tr:nth-child(even), tbody tr:hover { background: var(--surface); }
+    tbody td, tbody td:first-child, tbody td:nth-child(2) {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+      position: static; width: auto; min-width: 0; max-width: none;
+      white-space: normal; text-align: right;
+      padding: 8px 14px; border: none; border-bottom: 1px solid var(--border);
+      background: transparent;
+    }
+    tbody tr:hover td, tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2),
+    tbody tr:nth-child(even) td:first-child, tbody tr:nth-child(even) td:nth-child(2) { background: transparent; }
+    tbody td::before {
+      content: attr(data-label); flex: 0 0 auto; max-width: 48%;
+      text-align: left; color: var(--text-secondary); font-weight: 600;
+    }
+    tbody td:first-child, tbody td:nth-child(2) { font-weight: 600; }
+    tbody td:nth-child(2) { flex-wrap: wrap; }
+    tbody td:nth-child(2) .plan-detail { flex: 1 0 100%; text-align: right; margin-top: 0; }
+    tbody td.col-hidden { display: none; }
+    tbody td.m-extra { display: none; }
+    tbody tr.m-open td.m-extra { display: flex; }
+    tbody tr.m-open td.m-extra.col-hidden { display: none; }
+    tbody td.m-more { display: block; padding: 0; border-bottom: none; text-align: center; }
+    tbody td.m-more::before { content: none; }
+    .m-more-btn {
+      width: 100%; min-height: 44px; background: none; border: none;
+      color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    /* 44px tap targets */
+    .tab-btn { min-height: 44px; }
+    .toggle-btn { min-height: 44px; padding: 0.5rem 0.9rem; }
+    #sortKeySelect, .dir-toggle, .multiselect-toggle { min-height: 44px; }
+    .switch-label { height: 44px; }
+    .switch input { inset: -11px -3px; height: 44px; width: 44px; }
+    button.primary { min-height: 44px; }
+    tbody td a { display: inline-block; padding: 12px 0; }
+  }
   .hourly-chart-svg { width: 100%; height: auto; display: block; }
   .hour-range-band { fill: rgba(56, 189, 248, 0.18); }
   .hour-avg-bar { fill: var(--accent); }
@@ -1492,6 +1541,7 @@ function sortAndRender() {
     return `<span class="${cls === 'save' ? 'badge save' : ''}">${sign}$${v.toFixed(0)}</span>`;
   }
 
+  const headerLabels = Array.from(document.querySelectorAll('#resultsTable thead th')).map(th => th.textContent.trim());
   sorted.forEach(r => {
     const tr = document.createElement('tr');
     const vsCurrentCell = r.vsCurrentPct === null
@@ -1529,6 +1579,22 @@ function sortAndRender() {
       <td class="num">${fmtCents(r.clDailyCharge)}</td>
       <td class="num">${fmtCentsDiff(r.clDailyChargeDiff)}</td>
     `;
+    // Small screens render each row as a card (see the max-width media query):
+    // cells carry their column header as a label, and everything after the
+    // first six columns is tucked behind a Details button.
+    Array.from(tr.children).forEach((td, i) => {
+      if (headerLabels[i]) td.dataset.label = headerLabels[i];
+      if (i >= 6) td.classList.add('m-extra');
+    });
+    const more = document.createElement('td');
+    more.className = 'm-more';
+    more.innerHTML = '<button type="button" class="m-more-btn" aria-expanded="false">Show details</button>';
+    more.querySelector('button').addEventListener('click', e => {
+      const open = tr.classList.toggle('m-open');
+      e.currentTarget.textContent = open ? 'Hide details' : 'Show details';
+      e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    tr.appendChild(more);
     tbody.appendChild(tr);
   });
 
