@@ -739,7 +739,11 @@ function parseUsageCsv(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
   if (lines.length < 2) return [];
   const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-  const dateIdx = header.findIndex(h => /date/.test(h));
+  // Prefer a combined timestamp column over a bare date column: an export that carries
+  // both (e.g. `date,hour,datetime,...`) would otherwise lose its hour, because the
+  // first header containing "date" is the date-only one.
+  let dateIdx = header.findIndex(h => /date.?time|timestamp/.test(h));
+  if (dateIdx === -1) dateIdx = header.findIndex(h => /date/.test(h));
   const solarCostIdx = header.findIndex(h => /(solar|export|feed.?in).*(cost|credit)|(cost|credit).*(solar|export|feed.?in)/.test(h));
   const solarIdx = header.findIndex((h, i) => /solar|export|feed.?in/.test(h) && i !== solarCostIdx);
   const usageCostIdx = header.findIndex((h, i) => /cost|charge/.test(h) && i !== solarCostIdx);
