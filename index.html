@@ -964,9 +964,11 @@ function costKwhAgainstTieredRates(rates, kwh) {
 }
 
 function costUsageAgainstTariffPeriod(tp, dayEntry) {
-  // Returns { cost, usedApprox } for ONE day's usage against ONE tariff period.
+  // Returns { cost, supplyCost, usageCost, usedApprox } for ONE day's usage against ONE
+  // tariff period. cost = supplyCost + usageCost; they are kept apart because some
+  // discounts (percentOfUse) apply to the usage charges only.
   const dailySupply = toNumGst(tp.dailySupplyCharge ?? tp.dailySupplyCharges);
-  let cost = dailySupply;
+  let cost = 0; // usage cost only; the daily supply charge is added on return
   let usedApprox = false;
 
   if (tp.singleRate) {
@@ -1015,7 +1017,7 @@ function costUsageAgainstTariffPeriod(tp, dayEntry) {
       });
     }
   }
-  return { cost, usedApprox };
+  return { cost: dailySupply + cost, supplyCost: dailySupply, usageCost: cost, usedApprox };
 }
 
 // Controlled load: the person's usage data already includes CL energy
@@ -1045,37 +1047,46 @@ function computeAnnualCostForPlan(plan, usage, includePayOnTimeDiscounts) {
   if (totalDays === 0) return null;
   const scaleToYear = 365 / totalDays;
 
-  let totalCost = 0;
+  let usageTotal = 0;   // energy charges over the uploaded period
+  let supplyTotal = 0;  // daily supply charges, incl. the controlled-load daily charge
   let usedApproxTou = false;
 
   for (const dayEntry of usage) {
     const monthDay = dayEntry.date.slice(5); // MM-DD
     const tp = selectTariffPeriodForDate(tariffPeriods, monthDay);
     if (!tp) continue;
-    const { cost, usedApprox } = costUsageAgainstTariffPeriod(tp, dayEntry);
-    totalCost += cost;
+    const { supplyCost, usageCost, usedApprox } = costUsageAgainstTariffPeriod(tp, dayEntry);
+    usageTotal += usageCost;
+    supplyTotal += supplyCost;
     if (usedApprox) usedApproxTou = true;
   }
 
-  totalCost += costControlledLoadDailyCharge(contract, usage);
+  supplyTotal += costControlledLoadDailyCharge(contract, usage);
 
-  // Apply guaranteed (non-conditional) percent-of-bill discounts, plus
-  // conditional pay-on-time/direct-debit ones if the user opted in - those
-  // are the only conditional discount category applied here; one-off
-  // sign-up credits (CONDITIONAL, category OTHER, fixedAmount) are handled
-  // separately in extractSignUpCredit, not folded into annual cost.
+  // Apply guaranteed (non-conditional) percent discounts, plus conditional
+  // pay-on-time/direct-debit ones if the user opted in - those are the only
+  // conditional discount category applied here; one-off sign-up credits
+  // (CONDITIONAL, category OTHER, fixedAmount) are handled separately in
+  // extractSignUpCredit, not folded into annual cost.
+  //  - percentOfBill: the whole bill (usage + supply).
+  //  - percentOfUse: the usage charges only, never the daily supply charge. The
+  //    feed describes it as applying to "GST inclusive energy usage charges", and
+  //    usageTotal is already GST-inclusive (toNumGst), so the rate applies as-is.
   const discounts = contract.discounts || contract.discount || [];
   for (const d of discounts) {
-    if (d.methodUType !== 'percentOfBill') continue;
     const isGuaranteed = d.type !== 'CONDITIONAL';
     const isOptedInPayOnTime = includePayOnTimeDiscounts && PAY_ON_TIME_DISCOUNT_CATEGORIES.includes(d.category);
-    if (isGuaranteed || isOptedInPayOnTime) {
-      const rate = toNum(d.percentOfBill?.rate);
-      totalCost *= (1 - rate);
+    if (!(isGuaranteed || isOptedInPayOnTime)) continue;
+    if (d.methodUType === 'percentOfBill') {
+      const factor = 1 - toNum(d.percentOfBill?.rate);
+      usageTotal *= factor;
+      supplyTotal *= factor;
+    } else if (d.methodUType === 'percentOfUse') {
+      usageTotal *= 1 - toNum(d.percentOfUse?.rate);
     }
   }
 
-  const annualCost = totalCost * scaleToYear;
+  const annualCost = (usageTotal + supplyTotal) * scaleToYear;
   return { annualCost, usedApproxTou, hasControlledLoad: !!contract.controlledLoad };
 }
 

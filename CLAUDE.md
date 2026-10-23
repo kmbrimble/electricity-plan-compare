@@ -121,7 +121,8 @@ Every claim below was checked against the committed `data/` files, not assumed.
 
 Exercised by the render check above: single-rate and TOU costing, tiered/block rates (191 tariff
 periods), controlled-load daily charges including multi-CL plans (235), guaranteed
-`percentOfBill` discounts (48), sign-up credits (70), solar credit, the Alinta reconciliation
+`percentOfBill` discounts (48), guaranteed `percentOfUse` discounts (7, all CovaU Freedom; they
+apply to usage charges only), sign-up credits (70), solar credit, the Alinta reconciliation
 line, and `ESTIMATE` read-quality rows (8 of 6007).
 
 **Never exercised by any test, manual or otherwise** — changed code here has nothing taking the
