@@ -669,7 +669,15 @@ function loadUsageText(text, sourceLabel) {
     usageDays = aggregateToDays(intervals);
     const dates = usageDays.map(r => r.date).sort();
     const isHourly = usageDays.some(d => d.hourlyKwh !== null);
-    setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}${sourceLabel || ''}.`, true);
+    const period = usagePeriod(usageDays);
+    const notes = [];
+    if (period.calendarDays - period.energyDays >= 0.05) {
+      notes.push(`some days are partial: energy is annualised over ${period.energyDays.toFixed(1)} days' worth of data, supply charges over all ${period.calendarDays} days`);
+    }
+    if (intervals.skipped > 0) {
+      notes.push(`${intervals.skipped} row${intervals.skipped === 1 ? '' : 's'} skipped (missing or unreadable date/kWh)`);
+    }
+    setStatus(usageStatus, `Loaded ${usageDays.length} days (${isHourly ? 'hourly resolution' : 'daily totals'}), ${dates[0]} to ${dates[dates.length-1]}${sourceLabel || ''}.${notes.length ? ' Note: ' + notes.join('; ') + '.' : ''}`, true);
     maybeEnableRun();
     document.getElementById('tabsCard').classList.remove('hidden');
     hourlyMonthIndex = 0;
@@ -753,15 +761,16 @@ function parseUsageCsv(text) {
     throw new Error('Could not find date/kWh columns in header: ' + header.join(', '));
   }
   const rows = [];
+  let skipped = 0; // rows with a missing/unreadable date or kWh; reported, not silently absorbed
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCsvLine(lines[i]);
     const rawDate = cols[dateIdx];
     const rawKwh = cols[kwhIdx];
-    if (!rawDate || rawKwh === undefined || rawKwh === '') continue;
+    if (!rawDate || rawKwh === undefined || rawKwh === '') { skipped++; continue; }
     const kwh = parseFloat(rawKwh);
-    if (isNaN(kwh)) continue;
+    if (isNaN(kwh)) { skipped++; continue; }
     const parsed = parseTimestamp(rawDate);
-    if (!parsed) continue;
+    if (!parsed) { skipped++; continue; }
     // null = column not present at all (no solar data uploaded); a real
     // number (incl. 0) = column present, this interval just exported nothing.
     const solarKwh = solarIdx !== -1 ? (parseFloat(cols[solarIdx]) || 0) : null;
@@ -779,6 +788,7 @@ function parseUsageCsv(text) {
       isEstimated: quality !== '' && quality !== 'ACTUAL',
     });
   }
+  rows.skipped = skipped;
   return rows;
 }
 
@@ -799,6 +809,7 @@ function aggregateToDays(intervals) {
         totalKwh: 0,
         hourlyKwh: row.hasTime ? new Array(24).fill(0) : null,
         hourlyEstimated: row.hasTime ? new Array(24).fill(false) : null,
+        hourSeen: row.hasTime ? new Array(24).fill(false) : null, // which hours have a row at all
         totalSolarKwh: row.solarKwh !== null ? 0 : null,
         totalUsageCost: row.usageCost !== null ? 0 : null,
         totalSolarCost: row.solarCost !== null ? 0 : null,
@@ -811,8 +822,10 @@ function aggregateToDays(intervals) {
         // mixed: this date previously had no time info, now does - upgrade it
         entry.hourlyKwh = new Array(24).fill(0);
         entry.hourlyEstimated = new Array(24).fill(false);
+        entry.hourSeen = new Array(24).fill(false);
       }
       entry.hourlyKwh[row.hour] += row.kwh;
+      entry.hourSeen[row.hour] = true;
       if (row.isEstimated) entry.hourlyEstimated[row.hour] = true;
     }
     if (row.solarKwh !== null) {
@@ -865,6 +878,31 @@ function parseTimestamp(raw) {
     return { date, hour: 0, hasTime: false };
   }
   return null;
+}
+
+// How much of a calendar day's energy is actually present in the data. Daily-total
+// rows are complete by definition. For hourly rows it is hours-present / 24, with 23+
+// hours counted as a full day so a daylight-saving short day isn't penalised.
+function dayCoverage(day) {
+  if (!day.hourSeen) return 1;
+  const n = day.hourSeen.filter(Boolean).length;
+  return n >= 23 ? 1 : n / 24;
+}
+
+// The period the usage covers, for annualising. Supply charges accrue per calendar day,
+// so they scale by 365 / calendar days. Energy (and solar) only exists for the hours
+// that were recorded, so it scales by 365 / energy-days, where a day with some hours
+// missing counts as that fraction of a day. The two are equal when every day is
+// complete; otherwise using calendar days for energy understates it (issue #21).
+function usagePeriod(usage) {
+  const calendarDays = usage.length;
+  const energyDays = usage.reduce((sum, d) => sum + dayCoverage(d), 0);
+  return {
+    calendarDays,
+    energyDays,
+    supplyScale: calendarDays > 0 ? 365 / calendarDays : 0,
+    energyScale: energyDays > 0 ? 365 / energyDays : 0,
+  };
 }
 
 function dayOfWeekFor(dateStr) {
@@ -1043,9 +1081,8 @@ function computeAnnualCostForPlan(plan, usage, includePayOnTimeDiscounts) {
   const tariffPeriods = contract.tariffPeriod || [];
   if (tariffPeriods.length === 0) return null;
 
-  const totalDays = usage.length;
-  if (totalDays === 0) return null;
-  const scaleToYear = 365 / totalDays;
+  if (usage.length === 0) return null;
+  const period = usagePeriod(usage);
 
   let usageTotal = 0;   // energy charges over the uploaded period
   let supplyTotal = 0;  // daily supply charges, incl. the controlled-load daily charge
@@ -1086,7 +1123,7 @@ function computeAnnualCostForPlan(plan, usage, includePayOnTimeDiscounts) {
     }
   }
 
-  const annualCost = (usageTotal + supplyTotal) * scaleToYear;
+  const annualCost = usageTotal * period.energyScale + supplyTotal * period.supplyScale;
   return { annualCost, usedApproxTou, hasControlledLoad: !!contract.controlledLoad };
 }
 
@@ -1187,13 +1224,12 @@ function extractSignUpCredit(plan) {
 
 // Annualizes a solar credit the same way plan costs are annualized: sum the
 // exported kWh across the uploaded period, multiply by the rate, scale by
-// 365/days-in-period.
+// 365/energy-days-in-period (see usagePeriod).
 function computeSolarCreditForYear(solarRateDollarsPerKwh, usage) {
   if (!usage || usage.length === 0) return 0;
   const totalSolarKwh = usage.reduce((s, d) => s + (d.totalSolarKwh || 0), 0);
   if (totalSolarKwh === 0) return 0;
-  const scaleToYear = 365 / usage.length;
-  return solarRateDollarsPerKwh * totalSolarKwh * scaleToYear;
+  return solarRateDollarsPerKwh * totalSolarKwh * usagePeriod(usage).energyScale;
 }
 
 // Sanity-check line: sums Alinta's own per-interval usage/solar cost columns
@@ -1293,22 +1329,25 @@ document.getElementById('runBtn').addEventListener('click', () => {
   let currentAnnualCost = null;
   let currentPeriodCost = null;
   let currentSolarCreditAnnual = null;
-  let totalDays = 0, totalKwh = 0, scaleToYear = 1;
+  let totalDays = 0, totalKwh = 0, energyScale = 1;
   if (!isNaN(currentSupply) && !isNaN(currentRate)) {
     totalDays = usageDays.length;
     totalKwh = usageDays.reduce((s, r) => s + r.totalKwh, 0);
-    scaleToYear = 365 / totalDays;
-    let cost = (currentSupply / 100) * totalDays + (currentRate / 100) * totalKwh;
+    const period = usagePeriod(usageDays);
+    energyScale = period.energyScale;
+    // Supply charges accrue per calendar day; energy and solar scale by energy-days.
+    let supplyPart = (currentSupply / 100) * totalDays;
+    let energyPart = (currentRate / 100) * totalKwh;
     if (!isNaN(currentClSupply)) {
-      cost += (currentClSupply / 100) * totalDays;
+      supplyPart += (currentClSupply / 100) * totalDays;
     }
     if (!isNaN(currentSolarRate) && usageHasSolar) {
       const totalSolarKwh = usageDays.reduce((s, r) => s + (r.totalSolarKwh || 0), 0);
-      cost -= (currentSolarRate / 100) * totalSolarKwh;
-      currentSolarCreditAnnual = (currentSolarRate / 100) * totalSolarKwh * scaleToYear;
+      energyPart -= (currentSolarRate / 100) * totalSolarKwh;
+      currentSolarCreditAnnual = (currentSolarRate / 100) * totalSolarKwh * energyScale;
     }
-    currentPeriodCost = cost;
-    currentAnnualCost = cost * scaleToYear;
+    currentPeriodCost = supplyPart + energyPart;
+    currentAnnualCost = supplyPart * period.supplyScale + energyPart * energyScale;
   }
 
   const recon = computeReconciliation(usageDays);
@@ -1334,7 +1373,7 @@ document.getElementById('runBtn').addEventListener('click', () => {
     // a TOU plan it reflects the peak-window rate specifically.
     if (currentAnnualCost && r.peakRate !== null && !isNaN(currentRate) && totalKwh > 0) {
       const rateDiffDollars = (r.peakRate - currentRate) / 100;
-      r.usageDiff = rateDiffDollars * totalKwh * scaleToYear;
+      r.usageDiff = rateDiffDollars * totalKwh * energyScale;
     } else {
       r.usageDiff = null;
     }

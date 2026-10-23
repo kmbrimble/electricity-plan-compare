@@ -10,7 +10,9 @@ no build step, no framework, no runtime dependencies. Everything runs client-sid
 - `parseUsageCsv` → `aggregateToDays` produces `usageDays`, the day-aggregated structure both
   the cost engine and the hourly chart read from. Extend it rather than re-parsing the CSV.
 - Cost engine (`computeAnnualCostForPlan` and the functions under `--- Cost engine ---`) costs
-  each plan day by day, then scales by `365 / days`. Solar feed-in is netted into `annualCost`
+  each plan day by day, then annualises with `usagePeriod`: supply charges scale by
+  `365 / calendar days`, energy and solar by `365 / energy-days` (a day with only some hours
+  recorded counts as that fraction), so partial days don't dilute the energy figure. Solar feed-in is netted into `annualCost`
   but kept visible as its own field; sign-up credits are excluded from it and shown as
   `yearOneCost`.
 - Two tabs (`switchTab`): the comparison table, and an hourly usage SVG chart needing only
