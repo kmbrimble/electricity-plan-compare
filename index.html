@@ -312,7 +312,7 @@
   <button type="button" class="link-btn hidden" id="collapseInputsBtn" style="margin-bottom: 1rem;">▴ Collapse back to summary</button>
   <div class="card">
     <div class="step-title"><span class="step-label">1</span><h2>Your usage data</h2></div>
-    <p class="step-desc">Upload your usage CSV. Hourly interval data (one row per hour, ISO timestamps) gives exact time-of-use costing; daily totals also work, using a typical load-shape estimate for time-of-use plans instead. If your controlled load usage is already included in this file's totals, you don't need a separate upload.</p>
+    <p class="step-desc">Upload your usage CSV. Hourly interval data (one row per hour, ISO timestamps) gives exact time-of-use costing; daily totals also work, using a typical load-shape estimate for time-of-use plans instead. If your controlled load usage is already included in this file's totals, you don't need a separate upload. Not sure what columns are accepted? See the <a href="https://github.com/kmbrimble/electricity-plan-compare/blob/main/data/README.md#usage-file-format" target="_blank" rel="noopener">usage file format guide</a>.</p>
     <input type="file" id="usageFile" accept=".csv" />
     <div class="file-status" id="usageStatus">No file loaded yet.</div>
   </div>
