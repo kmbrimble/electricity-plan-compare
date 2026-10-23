@@ -884,7 +884,9 @@ function dayOfWeekFor(dateStr) {
 //
 // controlledLoad sits on the contract itself (contract.controlledLoad),
 // as a sibling array to tariffPeriod - not nested inside each tariff
-// period. It is costed separately using the controlled-load usage file.
+// period. Its energy is not costed separately (the usage export already
+// includes it in the main meter totals); only its daily supply charge is
+// added, by costControlledLoadDailyCharge.
 
 const DEFAULT_TOU_WEIGHTS_BY_PREFIX = {
   PEAK: 0.35,
