@@ -1,5 +1,7 @@
 # Electricity Plan Comparator
 
+> Development happens on a private forge; this repository is a read-only mirror. Releases are published here.
+
 Ranks Energex-area retail electricity plans against your actual usage to find the cheapest option. Single static HTML page, no backend, no build step — runs entirely client-side.
 
 **Live:** https://kmbrimble.github.io/electricity-plan-compare/

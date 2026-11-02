@@ -1,0 +1,49 @@
+name: CI
+
+# Gitea is the primary forge; GitHub is a read-only push mirror whose only job is GitHub Pages (legacy build from `main`, which
+# GitHub runs by itself on every push, so there is deliberately no Pages workflow). This job is the required status check on main
+# ("CI / render (pull_request)"): it automates the render check documented in CLAUDE.md "Test command". The script is inline on
+# purpose: Pages publishes the repo root, so a new test file here would be published too (dot-directories like .gitea are not).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Install Playwright and Chromium
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      # Serve over http (file:// cannot fetch data/), load the demo data, press Run, and require the green baseline from CLAUDE.md:
+      # 971 plan rows (992 plans minus 21 Amber) and no console or page errors. Fewer rows means plans stopped costing.
+      - name: Render check (971 rows, no console errors)
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8791 >/dev/null 2>&1 &
+          SERVER=$!
+          trap 'kill $SERVER' EXIT
+          sleep 2
+          node -e '
+          const { chromium } = require("playwright");
+          (async () => {
+            const b = await chromium.launch(), p = await b.newPage(), errs = [];
+            p.on("console", m => m.type() === "error" && errs.push(m.text()));
+            p.on("pageerror", e => errs.push("pageerror: " + e.message));
+            await p.goto("http://localhost:8791/index.html");
+            await p.waitForTimeout(2500);
+            await p.click("#runBtn");
+            await p.waitForTimeout(2000);
+            const rows = await p.$$eval("tbody tr", r => r.length);
+            await b.close();
+            console.log({ rows, errs });
+            if (rows !== 971 || errs.length) { console.error("render check failed: expected 971 rows and no errors"); process.exit(1); }
+          })();
+          '

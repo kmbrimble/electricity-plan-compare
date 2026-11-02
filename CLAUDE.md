@@ -21,9 +21,8 @@ no build step, no framework, no runtime dependencies. Everything runs client-sid
   committed. Never fabricate or edit them — plausible fake data gives plausible wrong dollars.
 
 ## Test command
-**There is no automated test harness.** No test files, no `npm test`, no CI. `playwright` is a
-devDependency used only for ad-hoc render checks. The manual verification that replaces it,
-from the repo root:
+**There is no test suite; the gate is one render check**, run by Gitea CI on every PR (`.gitea/workflows/ci.yml`, inline script, required check `CI / render (pull_request)`) and runnable by hand. `playwright` is a
+devDependency used only for it. By hand, from the repo root:
 
     python3 -m http.server 8791 &     # MUST be http:// — file:// cannot fetch data/
     node -e '
@@ -40,10 +39,15 @@ Anything less than 971 means plans stopped costing. Serving over `file://` is no
 check, it is no check: `loadDefaults()` fails, no data loads, `#runBtn` stays disabled, and two
 `URL scheme "file" is not supported` console errors appear that are expected, not regressions.
 
+## Forge and Pages (changed 2 Nov 2026)
+**Gitea is primary; GitHub is a read-only push mirror and must never be pushed to directly** (the mirror force-syncs and prunes refs; Gitea syncs on every push and every 10 minutes).
+Work on `https://git.kiztigs.com/kmbrimble/electricity-plan-compare` (`origin`, gt credential helper); use `gt`, not `gh`, for issues and PRs. `main` is protected: PR + the green `CI / render (pull_request)`;
+butler-bot merges its own green PRs. GitHub has Issues, Wiki, Projects, Discussions and PRs switched off, **but Pages stays on**: the public site is still served from the GitHub copy (see below), which is the only reason the repo is mirrored.
+
 ## Deploy and verify
-GitHub Pages, legacy build from `main` at repo root, HTTPS enforced, no custom domain. Push to
-`main` and it redeploys itself — there is no workflow file, no CI config and no Dockerfile in
-the repo by design; Pages is configured in the GitHub repo settings, outside this repository.
+GitHub Pages, legacy build from `main` at repo root, HTTPS enforced, no custom domain. Merging to
+`main` on Gitea is enough: the mirror pushes it to GitHub within seconds and GitHub's own Pages build redeploys it — there is no GitHub workflow file and no Dockerfile in
+the repo by design (the only CI is the Gitea render check); Pages is configured in the GitHub repo settings, outside this repository.
 Verify at https://kmbrimble.github.io/electricity-plan-compare/ — console clean, table
 populated. Build status: `gh api repos/kmbrimble/electricity-plan-compare/pages`.
 
