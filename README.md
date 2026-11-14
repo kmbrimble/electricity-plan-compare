@@ -1,3 +1,5 @@
+> **Retired 15 Nov 2026 — no longer used.** The repository is archived and the public site is taken down.
+
 # Electricity Plan Comparator
 
 > Development happens on a private forge; this repository is a read-only mirror. Releases are published here.
